@@ -49,9 +49,9 @@ Original content...
 
 <!-- subtitle:ja:start sha256:a1b2c3d4 -->
 ---
-日本語翻訳...
+<sub>🌐 Translated by [gh-subtitle](https://github.com/k1LoW/gh-subtitle) (model: copilot:gpt-4o-mini)</sub>
 
-<div align="right"><sub>Translated by <a href="https://github.com/k1LoW/gh-subtitle">gh-subtitle</a> (model: copilot:gpt-4o-mini)</sub></div>
+日本語翻訳...
 <!-- subtitle:ja:end -->
 ```
 
