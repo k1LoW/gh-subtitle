@@ -1,0 +1,264 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/k1LoW/gh-subtitle/internal/github"
+	"github.com/k1LoW/gh-subtitle/internal/subtitle"
+	"github.com/k1LoW/gh-subtitle/internal/translator"
+	"github.com/k1LoW/gh-subtitle/version"
+	"github.com/spf13/cobra"
+)
+
+var (
+	translateLangs []string
+	model          string
+	dryRun         bool
+	bodyOnly       bool
+	clearMode      bool
+	includeBots    bool
+)
+
+var rootCmd = &cobra.Command{
+	Use:     "gh-subtitle <URL>",
+	Short:   "Translate GitHub PR/Issue/Discussion content and add subtitles",
+	Version: version.Version,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runRoot,
+}
+
+func Execute() {
+	err := rootCmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+func init() {
+	rootCmd.Flags().StringSliceVarP(&translateLangs, "translate", "t", nil, "Target language(s) for translation (required, can be specified multiple times)")
+	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-4o-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-4o-mini)")
+	rootCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Show translations without updating GitHub")
+	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
+	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
+	rootCmd.Flags().BoolVar(&includeBots, "include-bots", false, "Include bot comments in translation (skipped by default)")
+}
+
+func runRoot(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+
+	if !clearMode && len(translateLangs) == 0 {
+		return fmt.Errorf("--translate (-t) is required")
+	}
+
+	parsed, err := github.ParseURL(args[0])
+	if err != nil {
+		return err
+	}
+
+	items, err := github.FetchContent(parsed, bodyOnly)
+	if err != nil {
+		return err
+	}
+
+	if clearMode {
+		return runClear(parsed, items)
+	}
+
+	return runTranslate(ctx, parsed, items)
+}
+
+func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
+	for _, item := range items {
+		if item.IsBot && !includeBots {
+			continue
+		}
+		var newBody string
+		if len(translateLangs) == 0 {
+			newBody = subtitle.StripTranslation(item.Body)
+		} else {
+			newBody = item.Body
+			for _, lang := range translateLangs {
+				newBody = subtitle.StripTranslationForLang(newBody, lang)
+			}
+		}
+
+		if newBody == item.Body {
+			continue
+		}
+
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "[dry-run] Would clear translations for %s\n", contentLabel(item))
+			continue
+		}
+
+		if err := github.UpdateContent(parsed, item, newBody); err != nil {
+			return fmt.Errorf("failed to update %s: %w", contentLabel(item), err)
+		}
+		fmt.Fprintf(os.Stderr, "Cleared translations for %s\n", contentLabel(item))
+	}
+	return nil
+}
+
+func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.ContentItem) error {
+	var trans translator.Translator
+	var transErr error
+
+	for _, lang := range translateLangs {
+		// Collect items needing translation for this language
+		var toTranslate []translator.TranslationInput
+		var targetItems []github.ContentItem
+
+		for _, item := range items {
+			if item.IsBot && !includeBots {
+				fmt.Fprintf(os.Stderr, "Skipping %s (bot)\n", contentLabel(item))
+				continue
+			}
+			if !subtitle.NeedsTranslation(item.Body, lang) {
+				fmt.Fprintf(os.Stderr, "Skipping %s for %s (up to date)\n", contentLabel(item), lang)
+				continue
+			}
+
+			original := subtitle.StripTranslation(item.Body)
+			if original == "" {
+				continue
+			}
+
+			key := contentKey(item)
+			toTranslate = append(toTranslate, translator.TranslationInput{
+				Key:  key,
+				Text: original,
+			})
+			targetItems = append(targetItems, item)
+		}
+
+		if len(toTranslate) == 0 {
+			continue
+		}
+
+		// Lazily initialize translator
+		if trans == nil {
+			provider, modelName, err := parseModel(model)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Starting %s translator (model: %s)...\n", provider, modelName)
+			trans, transErr = newTranslator(ctx, provider, modelName)
+			if transErr != nil {
+				return fmt.Errorf("failed to create translator: %w", transErr)
+			}
+			defer trans.Close() //nolint:errcheck
+		}
+
+		fmt.Fprintf(os.Stderr, "Translating %d item(s) to %s...\n", len(toTranslate), lang)
+
+		outputs, err := trans.TranslateBatch(ctx, lang, toTranslate)
+		if err != nil {
+			return fmt.Errorf("translation failed: %w", err)
+		}
+
+		// Build key->translation map
+		translationMap := make(map[string]string)
+		for _, out := range outputs {
+			translationMap[out.Key] = out.Text
+		}
+
+		// Apply translations
+		for i, item := range targetItems {
+			key := toTranslate[i].Key
+			translation, ok := translationMap[key]
+			if !ok {
+				fmt.Fprintf(os.Stderr, "Warning: no translation returned for %s\n", key)
+				continue
+			}
+
+			newBody, err := subtitle.ApplyTranslation(item.Body, translation, lang, model)
+			if err != nil {
+				return fmt.Errorf("failed to apply translation for %s: %w", contentLabel(item), err)
+			}
+
+			if dryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] %s (%s):\n", contentLabel(item), lang)
+				fmt.Println(newBody)
+				fmt.Println()
+				continue
+			}
+
+			if err := github.UpdateContent(parsed, item, newBody); err != nil {
+				return fmt.Errorf("failed to update %s: %w", contentLabel(item), err)
+			}
+			fmt.Fprintf(os.Stderr, "Updated %s with %s translation\n", contentLabel(item), lang)
+
+			// Update the item's body for subsequent language passes
+			items = updateItemBody(items, item, newBody)
+		}
+	}
+
+	return nil
+}
+
+func updateItemBody(items []github.ContentItem, target github.ContentItem, newBody string) []github.ContentItem {
+	for i, item := range items {
+		if item.Type == target.Type && item.NodeID == target.NodeID && item.DatabaseID == target.DatabaseID && item.Number == target.Number {
+			items[i].Body = newBody
+			break
+		}
+	}
+	return items
+}
+
+func contentKey(item github.ContentItem) string {
+	switch item.Type {
+	case github.ContentTypePRBody, github.ContentTypeIssueBody:
+		return "body"
+	case github.ContentTypeDiscussionBody:
+		return "dbody"
+	case github.ContentTypeIssueComment:
+		return fmt.Sprintf("ic_%d", item.DatabaseID)
+	case github.ContentTypeReviewComment:
+		return fmt.Sprintf("rc_%d", item.DatabaseID)
+	case github.ContentTypeDiscussionComment:
+		return fmt.Sprintf("dc_%s", item.NodeID)
+	default:
+		return "unknown"
+	}
+}
+
+func parseModel(model string) (provider, modelName string, err error) {
+	parts := strings.SplitN(model, ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-4o-mini)", model)
+	}
+	return parts[0], parts[1], nil
+}
+
+func newTranslator(ctx context.Context, provider, modelName string) (translator.Translator, error) {
+	switch provider {
+	case "copilot":
+		return translator.NewCopilotTranslator(ctx, modelName)
+	default:
+		return nil, fmt.Errorf("unsupported provider: %q (supported: copilot)", provider)
+	}
+}
+
+func contentLabel(item github.ContentItem) string {
+	switch item.Type {
+	case github.ContentTypePRBody:
+		return fmt.Sprintf("PR #%d body", item.Number)
+	case github.ContentTypeIssueBody:
+		return fmt.Sprintf("Issue #%d body", item.Number)
+	case github.ContentTypeDiscussionBody:
+		return fmt.Sprintf("Discussion body (%s)", item.NodeID)
+	case github.ContentTypeIssueComment:
+		return fmt.Sprintf("issue comment #%d", item.DatabaseID)
+	case github.ContentTypeReviewComment:
+		return fmt.Sprintf("review comment #%d", item.DatabaseID)
+	case github.ContentTypeDiscussionComment:
+		return fmt.Sprintf("discussion comment (%s)", item.NodeID)
+	default:
+		return strconv.FormatInt(item.DatabaseID, 10)
+	}
+}
