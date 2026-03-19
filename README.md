@@ -51,8 +51,7 @@ Original content...
 ---
 日本語翻訳...
 
----
-<sub>Translated by [gh-subtitle](https://github.com/k1LoW/gh-subtitle) (model: gpt-4o-mini)</sub>
+<div align="right"><sub>Translated by <a href="https://github.com/k1LoW/gh-subtitle">gh-subtitle</a> (model: copilot:gpt-4o-mini)</sub></div>
 <!-- subtitle:ja:end -->
 ```
 
@@ -106,6 +105,7 @@ Note: The `gh` CLI uses `GH_TOKEN` or `GITHUB_TOKEN` for GitHub API operations i
 | `--dry-run` | `-n` | Show translations without updating GitHub |
 | `--body-only` | | Translate only the body (skip comments) |
 | `--clear` | | Remove translation marker blocks (all languages, or specific languages with `-t`) |
+| `--include-bots` | | Include bot comments in translation (skipped by default) |
 
 ## Contributing
 
