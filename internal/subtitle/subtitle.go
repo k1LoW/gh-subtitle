@@ -119,7 +119,7 @@ func ApplyTranslation(body, translation, lang, model string) (string, error) {
 }
 
 func formatBlock(translation, model string) string {
-	return fmt.Sprintf("---\n%s\n\n<div align=\"right\"><sub>Translated by <a href=\"https://github.com/k1LoW/gh-subtitle\">gh-subtitle</a> (model: %s)</sub></div>", translation, model)
+	return fmt.Sprintf("---\n<sub>🌐 Translated by [gh-subtitle](https://github.com/k1LoW/gh-subtitle) (model: %s)</sub>\n\n%s", model, translation)
 }
 
 // replaceExistingBlock replaces the marker block for the given language using line-based processing.
