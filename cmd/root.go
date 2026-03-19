@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -102,6 +103,10 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 		}
 
 		if err := github.UpdateContent(parsed, item, newBody); err != nil {
+			if errors.Is(err, github.ErrValidationFailed) {
+				fmt.Fprintf(os.Stderr, "Skipping %s (not editable)\n", contentLabel(item))
+				continue
+			}
 			return fmt.Errorf("failed to update %s: %w", contentLabel(item), err)
 		}
 		fmt.Fprintf(os.Stderr, "Cleared translations for %s\n", contentLabel(item))
@@ -181,8 +186,23 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 				continue
 			}
 
-			// Skip if source and target language are the same (already in target language)
+			// Record skip marker if source and target language are the same
 			if out.From != "" && out.From == out.To {
+				newBody := subtitle.ApplySkipMarker(item.Body, lang)
+				if newBody != item.Body {
+					if dryRun {
+						fmt.Fprintf(os.Stderr, "[dry-run] %s (%s): skip marker (already in %s)\n", contentLabel(item), lang, out.From)
+					} else {
+						if err := github.UpdateContent(parsed, item, newBody); err != nil {
+							if errors.Is(err, github.ErrValidationFailed) {
+								fmt.Fprintf(os.Stderr, "Skipping %s (not editable)\n", contentLabel(item))
+							} else {
+								return fmt.Errorf("failed to update %s: %w", contentLabel(item), err)
+							}
+						}
+					}
+					items = updateItemBody(items, item, newBody)
+				}
 				fmt.Fprintf(os.Stderr, "Skipping %s for %s (already in %s)\n", contentLabel(item), lang, out.From)
 				continue
 			}
@@ -200,6 +220,10 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			}
 
 			if err := github.UpdateContent(parsed, item, newBody); err != nil {
+				if errors.Is(err, github.ErrValidationFailed) {
+					fmt.Fprintf(os.Stderr, "Skipping %s (not editable)\n", contentLabel(item))
+					continue
+				}
 				return fmt.Errorf("failed to update %s: %w", contentLabel(item), err)
 			}
 			fmt.Fprintf(os.Stderr, "Updated %s with %s translation\n", contentLabel(item), lang)

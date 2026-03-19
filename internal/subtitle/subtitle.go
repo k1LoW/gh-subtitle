@@ -83,6 +83,23 @@ func NeedsTranslation(body, lang string) bool {
 	return existingHash != currentHash
 }
 
+// ApplySkipMarker inserts or updates an empty marker block to record the content hash.
+// This prevents unnecessary LLM calls on subsequent runs when the content is already in the target language.
+func ApplySkipMarker(body, lang string) string {
+	original := StripTranslation(body)
+	hash := computeHash(original)
+
+	start := markerStart(lang, hash)
+	end := markerEnd(lang)
+
+	existingStart := fmt.Sprintf("<!-- subtitle:%s:start sha256:", lang)
+	if strings.Contains(body, existingStart) {
+		return replaceExistingBlock(body, "", lang, hash)
+	}
+
+	return body + "\n\n" + start + "\n" + end
+}
+
 // ApplyTranslation inserts or replaces the translation block for the given language.
 func ApplyTranslation(body, translation, lang, model string) (string, error) {
 	original := StripTranslation(body)

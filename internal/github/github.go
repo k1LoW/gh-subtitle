@@ -317,6 +317,9 @@ func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]Co
 	return items, nil
 }
 
+// ErrValidationFailed is returned when GitHub returns a 422 Validation Failed response.
+var ErrValidationFailed = fmt.Errorf("validation failed")
+
 func ghAPIUpdate(method, endpoint, body string) error {
 	cmd := exec.Command("gh", "api", "--method", method, endpoint, "--input", "-")
 	payload, err := json.Marshal(map[string]string{"body": body})
@@ -326,9 +329,16 @@ func ghAPIUpdate(method, endpoint, body string) error {
 	cmd.Stdin = strings.NewReader(string(payload))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if isValidationError(out) {
+			return fmt.Errorf("%w: %s", ErrValidationFailed, endpoint)
+		}
 		return fmt.Errorf("failed to update %s: %w\n%s", endpoint, err, string(out))
 	}
 	return nil
+}
+
+func isValidationError(output []byte) bool {
+	return strings.Contains(string(output), "Validation Failed")
 }
 
 func updateDiscussion(nodeID, body string) error {
