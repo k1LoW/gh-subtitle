@@ -161,21 +161,27 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 		}
 
 		// Build key->translation map
-		translationMap := make(map[string]string)
+		translationOutputMap := make(map[string]translator.TranslationOutput)
 		for _, out := range outputs {
-			translationMap[out.Key] = out.Text
+			translationOutputMap[out.Key] = out
 		}
 
 		// Apply translations
 		for i, item := range targetItems {
 			key := toTranslate[i].Key
-			translation, ok := translationMap[key]
+			out, ok := translationOutputMap[key]
 			if !ok {
 				fmt.Fprintf(os.Stderr, "Warning: no translation returned for %s\n", key)
 				continue
 			}
 
-			newBody, err := subtitle.ApplyTranslation(item.Body, translation, lang, model)
+			// Skip if source and target language are the same (already in target language)
+			if out.From != "" && out.From == out.To {
+				fmt.Fprintf(os.Stderr, "Skipping %s for %s (already in %s)\n", contentLabel(item), lang, out.From)
+				continue
+			}
+
+			newBody, err := subtitle.ApplyTranslation(item.Body, out.Text, lang, model)
 			if err != nil {
 				return fmt.Errorf("failed to apply translation for %s: %w", contentLabel(item), err)
 			}

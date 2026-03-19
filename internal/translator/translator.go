@@ -12,6 +12,8 @@ type TranslationInput struct {
 type TranslationOutput struct {
 	Key  string `json:"key"`
 	Text string `json:"text"`
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 // Translator translates batches of text to a target language.

@@ -53,7 +53,9 @@ func (t *CopilotTranslator) TranslateBatch(ctx context.Context, lang string, ite
 	}
 
 	systemPrompt := fmt.Sprintf(`You are a translator. You will receive a JSON array of objects, each with "key" and "text" fields.
-Translate all "text" values to %s and return a JSON array with the same structure (same "key", translated "text").
+Translate all "text" values to %s and return a JSON array with the same structure.
+
+Each output object must have: "key", "text" (translated), "from" (detected source language code, e.g. "en", "ja", "zh"), and "to" (target language code).
 
 Rules:
 - Preserve all Markdown formatting, links, images, code blocks, and HTML tags exactly.
