@@ -4,6 +4,9 @@
 
 It uses the [Copilot SDK](https://github.com/github/copilot-sdk) to translate content and manages translation blocks with HTML comment markers for idempotent updates.
 
+> [!WARNING]
+> This tool sends PR/Issue/Discussion bodies and comments to an LLM for translation. Since these texts are user-generated content, they may contain prompt injection attempts that could cause the LLM to produce unexpected output. The translated output is written back to GitHub without content verification. Be aware of this risk when translating content from untrusted sources.
+
 ## Usage
 
 ```bash
