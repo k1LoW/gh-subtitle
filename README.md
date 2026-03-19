@@ -1,4 +1,4 @@
-# gh-subtitle
+# 🌐 gh-subtitle
 
 `gh-subtitle` is a GitHub CLI (`gh`) extension that translates PR / Issue / Discussion bodies and comments, appending translated text as subtitles.
 
