@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/k1LoW/gh-subtitle/internal/github"
 	"github.com/k1LoW/gh-subtitle/internal/subtitle"
@@ -52,6 +53,11 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	if !clearMode && len(translateLangs) == 0 {
 		return fmt.Errorf("--translate (-t) is required")
+	}
+	for _, lang := range translateLangs {
+		if utf8.RuneCountInString(lang) > 10 {
+			return fmt.Errorf("language tag too long (max 10 characters): %q", lang)
+		}
 	}
 
 	parsed, err := github.ParseURL(args[0])
