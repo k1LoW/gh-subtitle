@@ -493,6 +493,39 @@ func TestCollectExistingTitleTranslationsWithSkipMarker(t *testing.T) {
 	}
 }
 
+func TestExternalEditIdempotency(t *testing.T) {
+	// Simulate: original title "Old Title" was translated, then user externally edits to "New Title".
+	oldTitle := "Old Title"
+	oldHash := computeHash(oldTitle)
+	body := "Some body\n" + titleOriginalMarker(oldTitle) + "\n" + titleHashMarker("ja", oldHash)
+	currentTitle := "New Title / 古い翻訳"
+
+	// NeedsTitleTranslation should detect the external edit.
+	if !NeedsTitleTranslation(body, currentTitle, "ja") {
+		t.Fatal("should need re-translation after external edit")
+	}
+
+	// Simulate re-translation: apply new title translation.
+	newOriginal := ExtractOriginalTitle(body, currentTitle)
+	if newOriginal != "New Title" {
+		t.Fatalf("ExtractOriginalTitle() = %q, want %q", newOriginal, "New Title")
+	}
+
+	body = ApplyTitleTranslation(body, "ja", newOriginal)
+
+	// After applying, the original marker should be updated to the new title.
+	stored := parseTitleOriginal(body)
+	if stored != "New Title" {
+		t.Errorf("parseTitleOriginal() = %q, want %q after upsert", stored, "New Title")
+	}
+
+	// Now NeedsTitleTranslation should return false (idempotent).
+	newTitle := BuildTitle(newOriginal, map[string]string{"ja": "新しい翻訳"})
+	if NeedsTitleTranslation(body, newTitle, "ja") {
+		t.Error("should not need translation after applying (idempotency broken)")
+	}
+}
+
 func TestStripTranslationWithTitleMarkers(t *testing.T) {
 	title := "Fix bug"
 	body := "Hello world\n" + titleOriginalMarker(title) + "\n" + titleHashMarker("ja", computeHash(title))

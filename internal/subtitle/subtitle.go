@@ -318,16 +318,31 @@ func upsertTitleMarker(body, newMarker, lang string) string {
 	return strings.Join(result, "\n")
 }
 
-// ensureTitleOriginalMarker adds the subtitle-title-original marker if not present.
+// ensureTitleOriginalMarker upserts the subtitle-title-original marker.
+// It replaces any existing marker (and deduplicates) or appends a new one.
 func ensureTitleOriginalMarker(body, originalTitle string) string {
-	if titleOriginalRe.MatchString(body) {
-		return body
-	}
 	marker := titleOriginalMarker(originalTitle)
 	if body == "" {
 		return marker
 	}
-	return body + "\n" + marker
+
+	lines := strings.Split(body, "\n")
+	var result []string
+	found := false
+	for _, line := range lines {
+		if titleOriginalRe.MatchString(line) {
+			if !found {
+				result = append(result, marker)
+				found = true
+			}
+			continue
+		}
+		result = append(result, line)
+	}
+	if !found {
+		result = append(result, marker)
+	}
+	return strings.Join(result, "\n")
 }
 
 // BuildTitle constructs a title string from the original title and translations.
