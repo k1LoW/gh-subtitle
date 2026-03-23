@@ -161,12 +161,12 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			if err != nil {
 				return err
 			}
-			providerConfig, err := buildProviderConfig(provider, byok)
+			providerConfig, err := buildProviderConfig(provider, byok, baseURL)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Starting %s translator (model: %s)...\n", provider, modelName)
-			trans, transErr = newTranslator(ctx, modelName, providerConfig)
+			trans, transErr = translator.NewCopilotTranslator(ctx, modelName, providerConfig)
 			if transErr != nil {
 				return fmt.Errorf("failed to create translator: %w", transErr)
 			}
@@ -280,11 +280,7 @@ func parseModel(model string) (provider, modelName string, err error) {
 	return parts[0], parts[1], nil
 }
 
-func newTranslator(ctx context.Context, modelName string, providerConfig *copilot.ProviderConfig) (translator.Translator, error) {
-	return translator.NewCopilotTranslator(ctx, modelName, providerConfig)
-}
-
-func buildProviderConfig(provider string, byokMode bool) (*copilot.ProviderConfig, error) {
+func buildProviderConfig(provider string, byokMode bool, flagBaseURL string) (*copilot.ProviderConfig, error) {
 	if !byokMode {
 		if provider != "copilot" {
 			return nil, fmt.Errorf("provider %q requires --byok flag", provider)
@@ -320,7 +316,7 @@ func buildProviderConfig(provider string, byokMode bool) (*copilot.ProviderConfi
 	}
 
 	// Resolve base URL: --base-url flag > env var > provider default
-	resolvedURL := baseURL
+	resolvedURL := flagBaseURL
 	if resolvedURL == "" {
 		resolvedURL = os.Getenv("GH_SUBTITLE_PROVIDER_BASE_URL")
 	}

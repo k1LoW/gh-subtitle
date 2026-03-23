@@ -32,7 +32,7 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 	opts := &copilot.ClientOptions{
 		LogLevel: "error",
 	}
-	if token := resolveToken(); token != "" {
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		opts.GitHubToken = token
 	}
 
@@ -168,14 +168,6 @@ func parseCopilotVersion(output string) string {
 	return m
 }
 
-// resolveToken returns a token for Copilot SDK authentication.
-// Priority: GITHUB_TOKEN > "" (use gh auth logged-in user).
-func resolveToken() string {
-	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
-		return t
-	}
-	return ""
-}
 
 func compareVersions(a, b string) int {
 	partsA := strings.Split(a, ".")
