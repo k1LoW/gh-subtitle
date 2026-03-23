@@ -189,6 +189,11 @@ func titleSkipHashMarker(lang, hash string) string {
 	return fmt.Sprintf("<!-- subtitle-title:%s sha256:%s skip -->", lang, hash)
 }
 
+// hasTitleMarkers returns true if the body contains any title-related markers.
+func hasTitleMarkers(body string) bool {
+	return titleOriginalRe.MatchString(body) || titleHashRe.MatchString(body)
+}
+
 // NeedsTitleTranslation returns true if the title needs translation for the given language.
 // It compares the hash stored in the body marker against the hash of the current original title.
 // If the title has been modified externally (marker's original != current title's first segment),
@@ -202,9 +207,9 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 
 	// Determine the current original title (what should be translated)
 	currentOriginal := title
-	if before, _, found := strings.Cut(title, titleSeparator); found {
-		// If stored original differs from the title's first segment,
-		// the title was externally edited — force re-translation.
+	if before, _, found := strings.Cut(title, titleSeparator); found && hasTitleMarkers(body) {
+		// Only split on separator when markers exist (title is tool-managed).
+		// Without markers, the title may legitimately contain " / ".
 		if storedOriginal != "" && storedOriginal != before {
 			return true
 		}
@@ -214,7 +219,7 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 			currentOriginal = before
 		}
 	} else if storedOriginal != "" && storedOriginal != title {
-		// No separator, but stored original differs from full title — external change.
+		// No separator (or no markers), but stored original differs — external change.
 		return true
 	}
 
@@ -227,14 +232,18 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 	return true
 }
 
-// ExtractOriginalTitle extracts the original title from body markers or by splitting the current title.
+// ExtractOriginalTitle extracts the original title from body markers, or returns the current title.
+// Only splits on separator when title markers exist in the body (tool-managed title).
 func ExtractOriginalTitle(body, title string) string {
 	if orig := parseTitleOriginal(body); orig != "" {
 		return orig
 	}
-	// Fallback: take the first segment before separator
-	if before, _, found := strings.Cut(title, titleSeparator); found {
-		return before
+	// Only split on separator when markers confirm the title is tool-managed.
+	// Without markers, the title may legitimately contain " / ".
+	if hasTitleMarkers(body) {
+		if before, _, found := strings.Cut(title, titleSeparator); found {
+			return before
+		}
 	}
 	return title
 }

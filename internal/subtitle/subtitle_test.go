@@ -273,6 +273,13 @@ func TestNeedsTitleTranslation(t *testing.T) {
 			lang:  "ja",
 			want:  true,
 		},
+		{
+			name:  "title with separator but no markers (first run) - needs translation",
+			body:  "Some body text",
+			title: "Fix path / to file",
+			lang:  "ja",
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -299,10 +306,16 @@ func TestExtractOriginalTitle(t *testing.T) {
 			want:  "Original Title",
 		},
 		{
-			name:  "from title with separator",
-			body:  "body without markers",
+			name:  "from title with separator (with hash marker)",
+			body:  "body\n" + titleHashMarker("ja", computeHash("Original Title")),
 			title: "Original Title / 翻訳タイトル",
 			want:  "Original Title",
+		},
+		{
+			name:  "title with separator but no markers (first run)",
+			body:  "body without markers",
+			title: "Fix path / to file",
+			want:  "Fix path / to file",
 		},
 		{
 			name:  "plain title no separator",

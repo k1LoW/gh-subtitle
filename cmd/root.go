@@ -91,14 +91,34 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 			continue
 		}
 
-		// Restore title only when the original-title marker is present in the body
+		var newBody string
+		if len(translateLangs) == 0 {
+			newBody = subtitle.StripTranslation(item.Body)
+		} else {
+			newBody = item.Body
+			for _, lang := range translateLangs {
+				newBody = subtitle.StripTranslationForLang(newBody, lang)
+				newBody = subtitle.StripTitleMarkersForLang(newBody, lang)
+			}
+		}
+
+		// Restore or rebuild title when the original-title marker is present
 		if item.Title != "" && !skipTitle && strings.Contains(item.Body, "subtitle-title-original") {
 			originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
-			if originalTitle != item.Title {
+			var newTitle string
+			if len(translateLangs) == 0 {
+				// Clearing all languages — restore to original title
+				newTitle = originalTitle
+			} else {
+				// Clearing specific languages — rebuild title from remaining translations
+				remaining := subtitle.CollectExistingTitleTranslations(newBody, item.Title)
+				newTitle = subtitle.BuildTitle(originalTitle, remaining)
+			}
+			if newTitle != item.Title {
 				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would restore title for %s: %q\n", contentLabel(item), originalTitle)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would update title for %s: %q\n", contentLabel(item), newTitle)
 				} else {
-					if err := github.UpdateTitle(parsed, item, originalTitle); err != nil {
+					if err := github.UpdateTitle(parsed, item, newTitle); err != nil {
 						if errors.Is(err, github.ErrValidationFailed) {
 							fmt.Fprintf(os.Stderr, "Skipping title restore for %s (not editable)\n", contentLabel(item))
 						} else {
@@ -108,17 +128,6 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 						fmt.Fprintf(os.Stderr, "Restored title for %s\n", contentLabel(item))
 					}
 				}
-			}
-		}
-
-		var newBody string
-		if len(translateLangs) == 0 {
-			newBody = subtitle.StripTranslation(item.Body)
-		} else {
-			newBody = item.Body
-			for _, lang := range translateLangs {
-				newBody = subtitle.StripTranslationForLang(newBody, lang)
-				newBody = subtitle.StripTitleMarkersForLang(newBody, lang)
 			}
 		}
 
