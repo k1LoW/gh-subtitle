@@ -241,19 +241,37 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 }
 
 // ExtractOriginalTitle extracts the original title from body markers, or returns the current title.
-// Only splits on separator when title markers exist in the body (tool-managed title).
+// If the stored original diverges from the title's first segment, the current segment
+// is treated as the new original (external edit respected).
 func ExtractOriginalTitle(body, title string) string {
-	if orig := parseTitleOriginal(body); orig != "" {
-		return orig
-	}
-	// Only split on separator when markers confirm the title is tool-managed.
-	// Without markers, the title may legitimately contain " / ".
-	if hasTitleMarkers(body) {
-		if before, _, found := strings.Cut(title, titleSeparator); found {
-			return before
+	storedOriginal := parseTitleOriginal(body)
+
+	if !hasTitleMarkers(body) {
+		if storedOriginal != "" {
+			return storedOriginal
 		}
+		return title
 	}
-	return title
+
+	// With markers, derive the current original from the title's first segment.
+	currentSegment := title
+	if before, _, found := strings.Cut(title, titleSeparator); found {
+		currentSegment = before
+	}
+
+	if storedOriginal != "" {
+		// If title starts with stored original + separator, title is tool-managed.
+		if strings.HasPrefix(title, storedOriginal+titleSeparator) {
+			return storedOriginal
+		}
+		// Otherwise, the first segment differs from stored — respect external edit.
+		if currentSegment != storedOriginal {
+			return currentSegment
+		}
+		return storedOriginal
+	}
+
+	return currentSegment
 }
 
 // ApplyTitleTranslation adds or updates the title translation marker in the body for the given language.

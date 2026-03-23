@@ -365,6 +365,9 @@ func isValidationError(output []byte) bool {
 }
 
 func updateDiscussionField(nodeID, field, value string) error {
+	if field != "body" && field != "title" {
+		return fmt.Errorf("unsupported discussion field: %q", field)
+	}
 	mutation := fmt.Sprintf(`mutation {
   updateDiscussion(input: {discussionId: %q, %s: %q}) {
     discussion { id }

@@ -343,6 +343,12 @@ func TestExtractOriginalTitle(t *testing.T) {
 			title: "Fix path / to file / パス修正",
 			want:  "Fix path / to file",
 		},
+		{
+			name:  "externally edited title (stored original differs from current segment)",
+			body:  "body\n" + titleOriginalMarker("Old Title") + "\n" + titleHashMarker("ja", computeHash("Old Title")),
+			title: "New Title / 古い翻訳",
+			want:  "New Title",
+		},
 	}
 
 	for _, tt := range tests {
