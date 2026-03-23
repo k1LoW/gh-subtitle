@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.3.0](https://github.com/k1LoW/gh-subtitle/compare/v0.2.0...v0.3.0) - 2026-03-23
+### Breaking Changes 🛠
+- feat: add BYOK (Bring Your Own Key) mode for external LLM providers by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/7
+
 ## [v0.2.0](https://github.com/k1LoW/gh-subtitle/compare/v0.1.0...v0.2.0) - 2026-03-19
 ### New Features 🎉
 - feat: improve translation block format with globe icon header by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/5
