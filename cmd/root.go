@@ -50,7 +50,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
 	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
 	rootCmd.Flags().BoolVar(&includeBots, "include-bots", false, "Include bot comments in translation (skipped by default)")
-	rootCmd.Flags().BoolVar(&byok, "byok", false, "Use BYOK (Bring Your Own Key) mode with Copilot SDK (requires GH_SUBTITLE_PROVIDER_API_KEY env var)")
+	rootCmd.Flags().BoolVar(&byok, "byok", false, "Use BYOK (Bring Your Own Key) mode with Copilot SDK (GH_SUBTITLE_PROVIDER_API_KEY required for openai/anthropic/azure)")
 	rootCmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL for BYOK provider (env: GH_SUBTITLE_PROVIDER_BASE_URL)")
 }
 
@@ -275,7 +275,7 @@ func contentKey(item github.ContentItem) string {
 func parseModel(model string) (provider, modelName string, err error) {
 	parts := strings.SplitN(model, ":", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-4o-mini)", model)
+		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-4o-mini, openai:gpt-4o)", model)
 	}
 	return parts[0], parts[1], nil
 }

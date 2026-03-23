@@ -123,6 +123,8 @@ Supported providers:
 
 Base URL resolution order: `--base-url` flag → `GH_SUBTITLE_PROVIDER_BASE_URL` env var → provider default.
 
+Note: `GH_TOKEN` is for `gh` CLI API operations. Translation itself uses `GH_SUBTITLE_PROVIDER_API_KEY` for the configured provider.
+
 ```yaml
 # Example GitHub Actions step (BYOK with OpenAI)
 - run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja --byok -m openai:gpt-4o
@@ -141,7 +143,7 @@ Base URL resolution order: `--base-url` flag → `GH_SUBTITLE_PROVIDER_BASE_URL`
 | `--body-only` | | Translate only the body (skip comments) |
 | `--clear` | | Remove translation marker blocks (all languages, or specific languages with `-t`) |
 | `--include-bots` | | Include bot comments in translation (skipped by default) |
-| `--byok` | | Use BYOK mode with an external LLM provider (requires `GH_SUBTITLE_PROVIDER_API_KEY`) |
+| `--byok` | | Use BYOK mode with an external LLM provider (`GH_SUBTITLE_PROVIDER_API_KEY` required for openai/anthropic/azure) |
 | `--base-url` | | Base URL for BYOK provider (env: `GH_SUBTITLE_PROVIDER_BASE_URL`) |
 
 ## Contributing
