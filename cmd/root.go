@@ -264,9 +264,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 					newBody = subtitle.ApplyTitleSkipMarker(newBody, originalTitle, lang)
 					fmt.Fprintf(os.Stderr, "Skipping %s title for %s (already in %s)\n", contentLabel(item), lang, titleOut.From)
 				} else {
-					newBody = subtitle.ApplyTitleTranslation(newBody, lang, originalTitle)
-
-					// Build the new title
+					// Build the new title first, apply marker only after successful update
 					existingTranslations := subtitle.CollectExistingTitleTranslations(newBody, item.Title)
 					existingTranslations[lang] = titleOut.Text
 					newTitle := subtitle.BuildTitle(originalTitle, existingTranslations)
@@ -277,6 +275,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 					} else if newTitle != item.Title {
 						if dryRun {
 							fmt.Fprintf(os.Stderr, "[dry-run] %s title (%s): %s\n", contentLabel(item), lang, newTitle)
+							newBody = subtitle.ApplyTitleTranslation(newBody, lang, originalTitle)
 						} else {
 							if err := github.UpdateTitle(parsed, item, newTitle); err != nil {
 								if errors.Is(err, github.ErrValidationFailed) {
@@ -286,9 +285,13 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 								}
 							} else {
 								fmt.Fprintf(os.Stderr, "Updated %s title with %s translation\n", contentLabel(item), lang)
+								newBody = subtitle.ApplyTitleTranslation(newBody, lang, originalTitle)
 								items = updateItem(items, item, func(ci *github.ContentItem) { ci.Title = newTitle })
 							}
 						}
+					} else {
+						// Title unchanged (translation same as existing) — still record marker
+						newBody = subtitle.ApplyTitleTranslation(newBody, lang, originalTitle)
 					}
 				}
 			}

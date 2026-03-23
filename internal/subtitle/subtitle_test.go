@@ -444,6 +444,22 @@ func TestCollectExistingTitleTranslations(t *testing.T) {
 	}
 }
 
+func TestCollectExistingTitleTranslationsWithSkipMarker(t *testing.T) {
+	title := "Fix bug"
+	hash := computeHash(title)
+	// "en" has a skip marker (same-language), "ja" has a normal marker
+	body := "Some body\n" + titleOriginalMarker(title) + "\n" + titleSkipHashMarker("en", hash) + "\n" + titleHashMarker("ja", hash)
+	currentTitle := "Fix bug / バグ修正"
+
+	got := CollectExistingTitleTranslations(body, currentTitle)
+	if got["ja"] != "バグ修正" {
+		t.Errorf("ja translation = %q, want %q", got["ja"], "バグ修正")
+	}
+	if _, ok := got["en"]; ok {
+		t.Errorf("en should not have a translation (skip marker), but got %q", got["en"])
+	}
+}
+
 func TestStripTranslationWithTitleMarkers(t *testing.T) {
 	title := "Fix bug"
 	body := "Hello world\n" + titleOriginalMarker(title) + "\n" + titleHashMarker("ja", computeHash(title))

@@ -13,7 +13,7 @@ var markerStartRe = regexp.MustCompile(`<!-- subtitle:([^:]+):start sha256:([a-f
 var markerEndRe = regexp.MustCompile(`<!-- subtitle:([^:]+):end -->`)
 
 var titleOriginalRe = regexp.MustCompile(`<!-- subtitle-title-original:([A-Za-z0-9+/=]+) -->`)
-var titleHashRe = regexp.MustCompile(`<!-- subtitle-title:([^ ]+) sha256:([a-f0-9]+) -->`)
+var titleHashRe = regexp.MustCompile(`<!-- subtitle-title:([^ ]+) sha256:([a-f0-9]+)( skip)? -->`)
 
 func markerStart(lang, hash string) string {
 	return fmt.Sprintf("<!-- subtitle:%s:start sha256:%s -->", lang, hash)
@@ -185,6 +185,10 @@ func titleHashMarker(lang, hash string) string {
 	return fmt.Sprintf("<!-- subtitle-title:%s sha256:%s -->", lang, hash)
 }
 
+func titleSkipHashMarker(lang, hash string) string {
+	return fmt.Sprintf("<!-- subtitle-title:%s sha256:%s skip -->", lang, hash)
+}
+
 // NeedsTitleTranslation returns true if the title needs translation for the given language.
 // It compares the hash stored in the body marker against the hash of the current original title.
 // If the title has been modified externally (marker's original != current title's first segment),
@@ -241,16 +245,24 @@ func ApplyTitleTranslation(body, lang, originalTitle string) string {
 	return upsertTitleHashMarker(body, lang, computeHash(originalTitle))
 }
 
-// ApplyTitleSkipMarker adds a title marker for same-language skip (empty translation recorded).
+// ApplyTitleSkipMarker adds a title skip marker for same-language skip (no translation needed).
 func ApplyTitleSkipMarker(body, title, lang string) string {
 	originalTitle := ExtractOriginalTitle(body, title)
 	body = ensureTitleOriginalMarker(body, originalTitle)
-	return upsertTitleHashMarker(body, lang, computeHash(originalTitle))
+	return upsertTitleSkipHashMarker(body, lang, computeHash(originalTitle))
 }
 
 // upsertTitleHashMarker replaces or appends a title hash marker for the given language.
 func upsertTitleHashMarker(body, lang, hash string) string {
-	newMarker := titleHashMarker(lang, hash)
+	return upsertTitleMarker(body, titleHashMarker(lang, hash), lang)
+}
+
+// upsertTitleSkipHashMarker replaces or appends a title skip hash marker for the given language.
+func upsertTitleSkipHashMarker(body, lang, hash string) string {
+	return upsertTitleMarker(body, titleSkipHashMarker(lang, hash), lang)
+}
+
+func upsertTitleMarker(body, newMarker, lang string) string {
 	found := false
 	lines := strings.Split(body, "\n")
 	var result []string
@@ -316,22 +328,23 @@ func CollectExistingTitleTranslations(body, currentTitle string) map[string]stri
 	rest := currentTitle[len(originalTitle)+len(titleSeparator):]
 	segments := strings.Split(rest, titleSeparator)
 
-	// Find all language markers in body, sorted
+	// Find all non-skip language markers in body, sorted.
+	// Skip markers (same-language skip) don't produce title segments.
 	var langs []string
 	for _, m := range titleHashRe.FindAllStringSubmatch(body, -1) {
+		if m[3] == " skip" {
+			continue
+		}
 		langs = append(langs, m[1])
 	}
 	sort.Strings(langs)
 
-	// Match segments to languages that have non-empty translations.
-	// BuildTitle skips empty translations, so segments only correspond to
-	// languages that actually produced a translation (not same-language skips).
+	// Match segments to languages in sorted order.
 	segIdx := 0
 	for _, lang := range langs {
 		if segIdx >= len(segments) {
 			break
 		}
-		// Assign this segment to this language (assumes BuildTitle order)
 		result[lang] = segments[segIdx]
 		segIdx++
 	}
