@@ -249,6 +249,11 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			bodyOut, hasBody := translationOutputMap[bodyKey]
 			titleOut, hasTitle := translationOutputMap[titleKey]
 
+			if !hasBody && !hasTitle {
+				fmt.Fprintf(os.Stderr, "Warning: no translation output for %s, skipping\n", contentLabel(item))
+				continue
+			}
+
 			// Handle body skip (same language)
 			bodySkip := hasBody && bodyOut.From != "" && bodyOut.From == bodyOut.To
 			titleSkip := hasTitle && titleOut.From != "" && titleOut.From == titleOut.To

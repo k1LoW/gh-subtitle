@@ -303,8 +303,11 @@ func upsertTitleMarker(body, newMarker, lang string) string {
 	var result []string
 	for _, line := range lines {
 		if m := titleHashRe.FindStringSubmatch(line); m != nil && m[1] == lang {
-			result = append(result, newMarker)
-			found = true
+			if !found {
+				result = append(result, newMarker)
+				found = true
+			}
+			// Drop duplicate markers for the same language.
 			continue
 		}
 		result = append(result, line)
@@ -363,14 +366,18 @@ func CollectExistingTitleTranslations(body, currentTitle string) map[string]stri
 	rest := currentTitle[len(originalTitle)+len(titleSeparator):]
 	segments := strings.Split(rest, titleSeparator)
 
-	// Find all non-skip language markers in body, sorted.
+	// Find all non-skip language markers in body, sorted and deduplicated.
 	// Skip markers (same-language skip) don't produce title segments.
+	seen := make(map[string]bool)
 	var langs []string
 	for _, m := range titleHashRe.FindAllStringSubmatch(body, -1) {
 		if m[3] == " skip" {
 			continue
 		}
-		langs = append(langs, m[1])
+		if !seen[m[1]] {
+			seen[m[1]] = true
+			langs = append(langs, m[1])
+		}
 	}
 	sort.Strings(langs)
 
