@@ -1,6 +1,6 @@
 # 🌐 gh-subtitle
 
-`gh-subtitle` is a GitHub CLI (`gh`) extension that translates PR / Issue / Discussion bodies and comments, appending translated text as subtitles.
+`gh-subtitle` is a GitHub CLI (`gh`) extension that translates PR / Issue / Discussion titles, bodies, and comments, appending translated text as subtitles.
 
 It uses the [Copilot SDK](https://github.com/github/copilot-sdk) to translate content and manages translation blocks with HTML comment markers for idempotent updates.
 
@@ -21,6 +21,9 @@ $ gh subtitle https://github.com/owner/repo/pull/123 -t ja -t en
 
 # Translate only the body (skip comments)
 $ gh subtitle https://github.com/owner/repo/pull/123 -t ja --body-only
+
+# Skip title translation (translate body and comments only)
+$ gh subtitle https://github.com/owner/repo/pull/123 -t ja --skip-title
 
 # Preview translations without updating GitHub
 $ gh subtitle https://github.com/owner/repo/pull/123 -t ja --dry-run
@@ -49,13 +52,25 @@ $ GH_SUBTITLE_PROVIDER_API_KEY=... gh subtitle https://github.com/owner/repo/pul
 
 ### Supported Content
 
-| Type | Body | Comments |
-|------|------|----------|
-| Pull Request | ✓ | Issue comments, Review comments |
-| Issue | ✓ | Issue comments |
-| Discussion | ✓ | Comments, Replies |
+| Type | Title | Body | Comments |
+|------|-------|------|----------|
+| Pull Request | ✓ | ✓ | Issue comments, Review comments |
+| Issue | ✓ | ✓ | Issue comments |
+| Discussion | ✓ | ✓ | Comments, Replies |
 
-### Translation Markers
+### Title Translation
+
+Titles are translated alongside the body by default. The translated title is appended using a separator:
+
+```
+Original Title / 翻訳されたタイトル
+```
+
+Multiple languages are sorted alphabetically: `Original Title / ja翻訳 / ko번역`.
+
+Title translation state is tracked via HTML comment markers in the body (not in the title itself). Use `--skip-title` to disable title translation. Titles exceeding GitHub's 256-character limit are skipped with a warning.
+
+### Body Translation Markers
 
 Translations are inserted at the end of each content item, wrapped in HTML comment markers:
 
@@ -143,6 +158,7 @@ Note: `GH_TOKEN` is for `gh` CLI API operations. Translation itself uses `GH_SUB
 | `--body-only` | | Translate only the body (skip comments) |
 | `--clear` | | Remove translation marker blocks (all languages, or specific languages with `-t`) |
 | `--include-bots` | | Include bot comments in translation (skipped by default) |
+| `--skip-title` | | Skip title translation |
 | `--byok` | | Use BYOK mode with an external LLM provider (`GH_SUBTITLE_PROVIDER_API_KEY` required for openai/anthropic/azure) |
 | `--base-url` | | Base URL for BYOK provider (env: `GH_SUBTITLE_PROVIDER_BASE_URL`) |
 

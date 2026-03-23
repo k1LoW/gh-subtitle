@@ -31,7 +31,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:     "gh-subtitle <URL>",
-	Short:   "Translate GitHub PR/Issue/Discussion content and add subtitles",
+	Short:   "Translate GitHub PR/Issue/Discussion titles, bodies, and comments and add subtitles",
 	Version: version.Version,
 	Args:    cobra.ExactArgs(1),
 	RunE:    runRoot,
