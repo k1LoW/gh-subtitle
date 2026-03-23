@@ -226,15 +226,8 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			translationOutputMap[out.Key] = out
 		}
 
-		// Apply translations (deduplicate items)
-		processed := make(map[string]bool)
+		// Apply translations
 		for _, item := range targetItems {
-			itemID := contentKey(item)
-			if processed[itemID] {
-				continue
-			}
-			processed[itemID] = true
-
 			bodyKey := contentKey(item)
 			titleKey := bodyKey + "_title"
 
@@ -264,7 +257,6 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			// Apply title translation
 			if hasTitle && item.Title != "" {
 				originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
-				newBody = subtitle.PrepareTitleTranslation(newBody, originalTitle)
 
 				if titleSkip {
 					newBody = subtitle.ApplyTitleSkipMarker(newBody, originalTitle, lang)
@@ -291,7 +283,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 								}
 							} else {
 								fmt.Fprintf(os.Stderr, "Updated %s title with %s translation\n", contentLabel(item), lang)
-								items = updateItemTitle(items, item, newTitle)
+								items = updateItem(items, item, func(ci *github.ContentItem) { ci.Title = newTitle })
 							}
 						}
 					}
@@ -318,27 +310,17 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			}
 			fmt.Fprintf(os.Stderr, "Updated %s with %s translation\n", contentLabel(item), lang)
 
-			items = updateItemBody(items, item, newBody)
+			items = updateItem(items, item, func(ci *github.ContentItem) { ci.Body = newBody })
 		}
 	}
 
 	return nil
 }
 
-func updateItemBody(items []github.ContentItem, target github.ContentItem, newBody string) []github.ContentItem {
+func updateItem(items []github.ContentItem, target github.ContentItem, mutate func(*github.ContentItem)) []github.ContentItem {
 	for i, item := range items {
 		if item.Type == target.Type && item.NodeID == target.NodeID && item.DatabaseID == target.DatabaseID && item.Number == target.Number {
-			items[i].Body = newBody
-			break
-		}
-	}
-	return items
-}
-
-func updateItemTitle(items []github.ContentItem, target github.ContentItem, newTitle string) []github.ContentItem {
-	for i, item := range items {
-		if item.Type == target.Type && item.NodeID == target.NodeID && item.DatabaseID == target.DatabaseID && item.Number == target.Number {
-			items[i].Title = newTitle
+			mutate(&items[i])
 			break
 		}
 	}

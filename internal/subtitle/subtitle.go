@@ -194,19 +194,20 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 		return false
 	}
 
+	storedOriginal := parseTitleOriginal(body)
+
 	// Determine the current original title (what should be translated)
 	currentOriginal := title
 	if before, _, found := strings.Cut(title, titleSeparator); found {
-		if orig := parseTitleOriginal(body); orig != "" {
-			currentOriginal = orig
+		if storedOriginal != "" {
+			currentOriginal = storedOriginal
 		} else {
 			currentOriginal = before
 		}
 	}
 
 	// Check if the stored original differs from the current title's base
-	if storedOriginal := parseTitleOriginal(body); storedOriginal != "" && storedOriginal != currentOriginal {
-		// Title was changed externally
+	if storedOriginal != "" && storedOriginal != currentOriginal {
 		return true
 	}
 
@@ -234,34 +235,20 @@ func ExtractOriginalTitle(body, title string) string {
 // ApplyTitleTranslation adds or updates the title translation marker in the body for the given language.
 func ApplyTitleTranslation(body, lang, translatedTitle string) string {
 	originalTitle := ExtractOriginalTitle(body, "")
-	hash := computeHash(originalTitle)
-	newMarker := titleHashMarker(lang, hash)
-
-	// Replace existing marker for this lang, or append
-	found := false
-	lines := strings.Split(body, "\n")
-	var result []string
-	for _, line := range lines {
-		if m := titleHashRe.FindStringSubmatch(line); m != nil && m[1] == lang {
-			result = append(result, newMarker)
-			found = true
-			continue
-		}
-		result = append(result, line)
-	}
-	if !found {
-		result = append(result, newMarker)
-	}
-	return strings.Join(result, "\n")
+	body = ensureTitleOriginalMarker(body, originalTitle)
+	return upsertTitleHashMarker(body, lang, computeHash(originalTitle))
 }
 
 // ApplyTitleSkipMarker adds a title marker for same-language skip (empty translation recorded).
 func ApplyTitleSkipMarker(body, title, lang string) string {
 	originalTitle := ExtractOriginalTitle(body, title)
 	body = ensureTitleOriginalMarker(body, originalTitle)
-	hash := computeHash(originalTitle)
-	newMarker := titleHashMarker(lang, hash)
+	return upsertTitleHashMarker(body, lang, computeHash(originalTitle))
+}
 
+// upsertTitleHashMarker replaces or appends a title hash marker for the given language.
+func upsertTitleHashMarker(body, lang, hash string) string {
+	newMarker := titleHashMarker(lang, hash)
 	found := false
 	lines := strings.Split(body, "\n")
 	var result []string
@@ -314,46 +301,40 @@ func BuildTitle(originalTitle string, translations map[string]string) string {
 }
 
 // CollectExistingTitleTranslations extracts existing title translations from the current title string.
-// It uses the body markers to determine which languages have translations, then parses the title segments.
+// It parses title segments after the original title and matches them to languages in sorted order.
+// Only non-empty translations (those that appear as segments in the title) are returned.
 func CollectExistingTitleTranslations(body, currentTitle string) map[string]string {
 	result := make(map[string]string)
 	originalTitle := ExtractOriginalTitle(body, currentTitle)
 
-	// Find all language markers in body
+	// Parse current title segments: "Original / trans1 / trans2"
+	if !strings.HasPrefix(currentTitle, originalTitle+titleSeparator) {
+		return result
+	}
+	rest := currentTitle[len(originalTitle)+len(titleSeparator):]
+	segments := strings.Split(rest, titleSeparator)
+
+	// Find all language markers in body, sorted
 	var langs []string
 	for _, m := range titleHashRe.FindAllStringSubmatch(body, -1) {
 		langs = append(langs, m[1])
 	}
 	sort.Strings(langs)
 
-	if len(langs) == 0 {
-		return result
-	}
-
-	// Parse current title segments: "Original / trans1 / trans2"
-	// Skip the first segment (original title)
-	rest := currentTitle
-	if strings.HasPrefix(rest, originalTitle+titleSeparator) {
-		rest = rest[len(originalTitle)+len(titleSeparator):]
-	} else {
-		return result
-	}
-
-	segments := strings.Split(rest, titleSeparator)
-	for i, lang := range langs {
-		if i < len(segments) {
-			result[lang] = segments[i]
+	// Match segments to languages that have non-empty translations.
+	// BuildTitle skips empty translations, so segments only correspond to
+	// languages that actually produced a translation (not same-language skips).
+	segIdx := 0
+	for _, lang := range langs {
+		if segIdx >= len(segments) {
+			break
 		}
+		// Assign this segment to this language (assumes BuildTitle order)
+		result[lang] = segments[segIdx]
+		segIdx++
 	}
 
 	return result
-}
-
-// PrepareTitleTranslation prepares the body with the title-original marker and returns the body.
-// Should be called before translation to ensure the original title is recorded.
-func PrepareTitleTranslation(body, title string) string {
-	originalTitle := ExtractOriginalTitle(body, title)
-	return ensureTitleOriginalMarker(body, originalTitle)
 }
 
 // StripTitleMarkers removes all title-related markers from body.

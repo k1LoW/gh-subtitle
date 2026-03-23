@@ -63,15 +63,15 @@ func UpdateContent(parsed *ParsedURL, item ContentItem, newBody string) error {
 
 	switch item.Type {
 	case ContentTypePRBody:
-		return ghAPIUpdate("PATCH", fmt.Sprintf("repos/%s/pulls/%d", repo, item.Number), newBody)
+		return ghAPIUpdateField("PATCH", fmt.Sprintf("repos/%s/pulls/%d", repo, item.Number), "body", newBody)
 	case ContentTypeIssueBody:
-		return ghAPIUpdate("PATCH", fmt.Sprintf("repos/%s/issues/%d", repo, item.Number), newBody)
+		return ghAPIUpdateField("PATCH", fmt.Sprintf("repos/%s/issues/%d", repo, item.Number), "body", newBody)
 	case ContentTypeIssueComment:
-		return ghAPIUpdate("PATCH", fmt.Sprintf("repos/%s/issues/comments/%d", repo, item.DatabaseID), newBody)
+		return ghAPIUpdateField("PATCH", fmt.Sprintf("repos/%s/issues/comments/%d", repo, item.DatabaseID), "body", newBody)
 	case ContentTypeReviewComment:
-		return ghAPIUpdate("PATCH", fmt.Sprintf("repos/%s/pulls/comments/%d", repo, item.DatabaseID), newBody)
+		return ghAPIUpdateField("PATCH", fmt.Sprintf("repos/%s/pulls/comments/%d", repo, item.DatabaseID), "body", newBody)
 	case ContentTypeDiscussionBody:
-		return updateDiscussion(item.NodeID, newBody)
+		return updateDiscussionField(item.NodeID, "body", newBody)
 	case ContentTypeDiscussionComment:
 		return updateDiscussionComment(item.NodeID, newBody)
 	default:
@@ -330,55 +330,24 @@ func UpdateTitle(parsed *ParsedURL, item ContentItem, newTitle string) error {
 
 	switch item.Type {
 	case ContentTypePRBody:
-		return ghAPIUpdateTitle("PATCH", fmt.Sprintf("repos/%s/pulls/%d", repo, item.Number), newTitle)
+		return ghAPIUpdateField("PATCH", fmt.Sprintf("repos/%s/pulls/%d", repo, item.Number), "title", newTitle)
 	case ContentTypeIssueBody:
-		return ghAPIUpdateTitle("PATCH", fmt.Sprintf("repos/%s/issues/%d", repo, item.Number), newTitle)
+		return ghAPIUpdateField("PATCH", fmt.Sprintf("repos/%s/issues/%d", repo, item.Number), "title", newTitle)
 	case ContentTypeDiscussionBody:
-		return updateDiscussionTitle(item.NodeID, newTitle)
+		return updateDiscussionField(item.NodeID, "title", newTitle)
 	default:
 		return fmt.Errorf("unsupported content type for title update: %s", item.Type)
 	}
 }
 
-func ghAPIUpdateTitle(method, endpoint, title string) error {
-	cmd := exec.Command("gh", "api", "--method", method, endpoint, "--input", "-")
-	payload, err := json.Marshal(map[string]string{"title": title})
-	if err != nil {
-		return fmt.Errorf("failed to marshal title: %w", err)
-	}
-	cmd.Stdin = strings.NewReader(string(payload))
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if isValidationError(out) {
-			return fmt.Errorf("%w: %s", ErrValidationFailed, endpoint)
-		}
-		return fmt.Errorf("failed to update title %s: %w\n%s", endpoint, err, string(out))
-	}
-	return nil
-}
-
-func updateDiscussionTitle(nodeID, title string) error {
-	mutation := fmt.Sprintf(`mutation {
-  updateDiscussion(input: {discussionId: %q, title: %q}) {
-    discussion { id }
-  }
-}`, nodeID, title)
-
-	_, err := ghCommand("api", "graphql", "-f", fmt.Sprintf("query=%s", mutation))
-	if err != nil {
-		return fmt.Errorf("failed to update discussion title: %w", err)
-	}
-	return nil
-}
-
 // ErrValidationFailed is returned when GitHub returns a 422 Validation Failed response.
 var ErrValidationFailed = fmt.Errorf("validation failed")
 
-func ghAPIUpdate(method, endpoint, body string) error {
+func ghAPIUpdateField(method, endpoint, field, value string) error {
 	cmd := exec.Command("gh", "api", "--method", method, endpoint, "--input", "-")
-	payload, err := json.Marshal(map[string]string{"body": body})
+	payload, err := json.Marshal(map[string]string{field: value})
 	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
+		return fmt.Errorf("failed to marshal %s: %w", field, err)
 	}
 	cmd.Stdin = strings.NewReader(string(payload))
 	out, err := cmd.CombinedOutput()
@@ -386,7 +355,7 @@ func ghAPIUpdate(method, endpoint, body string) error {
 		if isValidationError(out) {
 			return fmt.Errorf("%w: %s", ErrValidationFailed, endpoint)
 		}
-		return fmt.Errorf("failed to update %s: %w\n%s", endpoint, err, string(out))
+		return fmt.Errorf("failed to update %s %s: %w\n%s", field, endpoint, err, string(out))
 	}
 	return nil
 }
@@ -395,16 +364,16 @@ func isValidationError(output []byte) bool {
 	return strings.Contains(string(output), "Validation Failed")
 }
 
-func updateDiscussion(nodeID, body string) error {
+func updateDiscussionField(nodeID, field, value string) error {
 	mutation := fmt.Sprintf(`mutation {
-  updateDiscussion(input: {discussionId: %q, body: %q}) {
+  updateDiscussion(input: {discussionId: %q, %s: %q}) {
     discussion { id }
   }
-}`, nodeID, body)
+}`, nodeID, field, value)
 
 	_, err := ghCommand("api", "graphql", "-f", fmt.Sprintf("query=%s", mutation))
 	if err != nil {
-		return fmt.Errorf("failed to update discussion: %w", err)
+		return fmt.Errorf("failed to update discussion %s: %w", field, err)
 	}
 	return nil
 }
