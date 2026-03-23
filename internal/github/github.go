@@ -83,12 +83,13 @@ func fetchPRContent(repo string, number int, bodyOnly bool) ([]ContentItem, erro
 	var items []ContentItem
 
 	// Fetch PR body
-	out, err := ghCommand("pr", "view", strconv.Itoa(number), "--repo", repo, "--json", "body")
+	out, err := ghCommand("pr", "view", strconv.Itoa(number), "--repo", repo, "--json", "body,title")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch PR body: %w", err)
 	}
 	var prData struct {
-		Body string `json:"body"`
+		Body  string `json:"body"`
+		Title string `json:"title"`
 	}
 	if err := json.Unmarshal(out, &prData); err != nil {
 		return nil, fmt.Errorf("failed to parse PR body: %w", err)
@@ -96,6 +97,7 @@ func fetchPRContent(repo string, number int, bodyOnly bool) ([]ContentItem, erro
 	items = append(items, ContentItem{
 		Type:   ContentTypePRBody,
 		Number: number,
+		Title:  prData.Title,
 		Body:   prData.Body,
 	})
 
@@ -124,12 +126,13 @@ func fetchIssueContent(repo string, number int, bodyOnly bool) ([]ContentItem, e
 	var items []ContentItem
 
 	// Fetch issue body
-	out, err := ghCommand("issue", "view", strconv.Itoa(number), "--repo", repo, "--json", "body")
+	out, err := ghCommand("issue", "view", strconv.Itoa(number), "--repo", repo, "--json", "body,title")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch issue body: %w", err)
 	}
 	var issueData struct {
-		Body string `json:"body"`
+		Body  string `json:"body"`
+		Title string `json:"title"`
 	}
 	if err := json.Unmarshal(out, &issueData); err != nil {
 		return nil, fmt.Errorf("failed to parse issue body: %w", err)
@@ -137,6 +140,7 @@ func fetchIssueContent(repo string, number int, bodyOnly bool) ([]ContentItem, e
 	items = append(items, ContentItem{
 		Type:   ContentTypeIssueBody,
 		Number: number,
+		Title:  issueData.Title,
 		Body:   issueData.Body,
 	})
 
@@ -223,6 +227,7 @@ func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]Co
   repository(owner: %q, name: %q) {
     discussion(number: %d) {
       id
+      title
       body
       comments(first: 100) {
         nodes {
@@ -252,8 +257,9 @@ func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]Co
 		Data struct {
 			Repository struct {
 				Discussion struct {
-					ID   string `json:"id"`
-					Body string `json:"body"`
+					ID    string `json:"id"`
+					Title string `json:"title"`
+					Body  string `json:"body"`
 					Comments struct {
 						Nodes []struct {
 							ID     string `json:"id"`
@@ -286,6 +292,7 @@ func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]Co
 	items = append(items, ContentItem{
 		Type:   ContentTypeDiscussionBody,
 		NodeID: disc.ID,
+		Title:  disc.Title,
 		Body:   disc.Body,
 	})
 
@@ -315,6 +322,53 @@ func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]Co
 	}
 
 	return items, nil
+}
+
+// UpdateTitle updates the title of a PR, Issue, or Discussion on GitHub.
+func UpdateTitle(parsed *ParsedURL, item ContentItem, newTitle string) error {
+	repo := parsed.Owner + "/" + parsed.Repo
+
+	switch item.Type {
+	case ContentTypePRBody:
+		return ghAPIUpdateTitle("PATCH", fmt.Sprintf("repos/%s/pulls/%d", repo, item.Number), newTitle)
+	case ContentTypeIssueBody:
+		return ghAPIUpdateTitle("PATCH", fmt.Sprintf("repos/%s/issues/%d", repo, item.Number), newTitle)
+	case ContentTypeDiscussionBody:
+		return updateDiscussionTitle(item.NodeID, newTitle)
+	default:
+		return fmt.Errorf("unsupported content type for title update: %s", item.Type)
+	}
+}
+
+func ghAPIUpdateTitle(method, endpoint, title string) error {
+	cmd := exec.Command("gh", "api", "--method", method, endpoint, "--input", "-")
+	payload, err := json.Marshal(map[string]string{"title": title})
+	if err != nil {
+		return fmt.Errorf("failed to marshal title: %w", err)
+	}
+	cmd.Stdin = strings.NewReader(string(payload))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if isValidationError(out) {
+			return fmt.Errorf("%w: %s", ErrValidationFailed, endpoint)
+		}
+		return fmt.Errorf("failed to update title %s: %w\n%s", endpoint, err, string(out))
+	}
+	return nil
+}
+
+func updateDiscussionTitle(nodeID, title string) error {
+	mutation := fmt.Sprintf(`mutation {
+  updateDiscussion(input: {discussionId: %q, title: %q}) {
+    discussion { id }
+  }
+}`, nodeID, title)
+
+	_, err := ghCommand("api", "graphql", "-f", fmt.Sprintf("query=%s", mutation))
+	if err != nil {
+		return fmt.Errorf("failed to update discussion title: %w", err)
+	}
+	return nil
 }
 
 // ErrValidationFailed is returned when GitHub returns a 422 Validation Failed response.

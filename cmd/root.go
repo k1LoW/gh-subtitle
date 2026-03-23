@@ -26,6 +26,7 @@ var (
 	includeBots    bool
 	byok           bool
 	baseURL        string
+	skipTitle      bool
 )
 
 var rootCmd = &cobra.Command{
@@ -52,6 +53,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&includeBots, "include-bots", false, "Include bot comments in translation (skipped by default)")
 	rootCmd.Flags().BoolVar(&byok, "byok", false, "Use BYOK (Bring Your Own Key) mode with Copilot SDK (GH_SUBTITLE_PROVIDER_API_KEY required for openai/anthropic/azure)")
 	rootCmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL for BYOK provider (env: GH_SUBTITLE_PROVIDER_BASE_URL)")
+	rootCmd.Flags().BoolVar(&skipTitle, "skip-title", false, "Skip title translation")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -88,6 +90,27 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 		if item.IsBot && !includeBots {
 			continue
 		}
+
+		// Restore title if this is a body item with title
+		if item.Title != "" && !skipTitle {
+			originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
+			if originalTitle != item.Title {
+				if dryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would restore title for %s: %q\n", contentLabel(item), originalTitle)
+				} else {
+					if err := github.UpdateTitle(parsed, item, originalTitle); err != nil {
+						if errors.Is(err, github.ErrValidationFailed) {
+							fmt.Fprintf(os.Stderr, "Skipping title restore for %s (not editable)\n", contentLabel(item))
+						} else {
+							return fmt.Errorf("failed to restore title for %s: %w", contentLabel(item), err)
+						}
+					} else {
+						fmt.Fprintf(os.Stderr, "Restored title for %s\n", contentLabel(item))
+					}
+				}
+			}
+		}
+
 		var newBody string
 		if len(translateLangs) == 0 {
 			newBody = subtitle.StripTranslation(item.Body)
@@ -95,6 +118,7 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 			newBody = item.Body
 			for _, lang := range translateLangs {
 				newBody = subtitle.StripTranslationForLang(newBody, lang)
+				newBody = subtitle.StripTitleMarkersForLang(newBody, lang)
 			}
 		}
 
@@ -133,22 +157,38 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 				fmt.Fprintf(os.Stderr, "Skipping %s (bot)\n", contentLabel(item))
 				continue
 			}
-			if !subtitle.NeedsTranslation(item.Body, lang) {
+
+			needsBody := subtitle.NeedsTranslation(item.Body, lang)
+			needsTitle := !skipTitle && item.Title != "" && subtitle.NeedsTitleTranslation(item.Body, item.Title, lang)
+
+			if !needsBody && !needsTitle {
 				fmt.Fprintf(os.Stderr, "Skipping %s for %s (up to date)\n", contentLabel(item), lang)
 				continue
 			}
 
-			original := subtitle.StripTranslation(item.Body)
-			if original == "" {
-				continue
+			if needsBody {
+				original := subtitle.StripTranslation(item.Body)
+				if original != "" {
+					key := contentKey(item)
+					toTranslate = append(toTranslate, translator.TranslationInput{
+						Key:  key,
+						Text: original,
+					})
+					targetItems = append(targetItems, item)
+				}
 			}
 
-			key := contentKey(item)
-			toTranslate = append(toTranslate, translator.TranslationInput{
-				Key:  key,
-				Text: original,
-			})
-			targetItems = append(targetItems, item)
+			if needsTitle {
+				originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
+				titleKey := contentKey(item) + "_title"
+				toTranslate = append(toTranslate, translator.TranslationInput{
+					Key:  titleKey,
+					Text: originalTitle,
+				})
+				if !needsBody {
+					targetItems = append(targetItems, item)
+				}
+			}
 		}
 
 		if len(toTranslate) == 0 {
@@ -186,39 +226,80 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			translationOutputMap[out.Key] = out
 		}
 
-		// Apply translations
-		for i, item := range targetItems {
-			key := toTranslate[i].Key
-			out, ok := translationOutputMap[key]
-			if !ok {
-				fmt.Fprintf(os.Stderr, "Warning: no translation returned for %s\n", key)
+		// Apply translations (deduplicate items)
+		processed := make(map[string]bool)
+		for _, item := range targetItems {
+			itemID := contentKey(item)
+			if processed[itemID] {
 				continue
 			}
+			processed[itemID] = true
 
-			// Record skip marker if source and target language are the same
-			if out.From != "" && out.From == out.To {
-				newBody := subtitle.ApplySkipMarker(item.Body, lang)
-				if newBody != item.Body {
-					if dryRun {
-						fmt.Fprintf(os.Stderr, "[dry-run] %s (%s): skip marker (already in %s)\n", contentLabel(item), lang, out.From)
-					} else {
-						if err := github.UpdateContent(parsed, item, newBody); err != nil {
-							if errors.Is(err, github.ErrValidationFailed) {
-								fmt.Fprintf(os.Stderr, "Skipping %s (not editable)\n", contentLabel(item))
+			bodyKey := contentKey(item)
+			titleKey := bodyKey + "_title"
+
+			bodyOut, hasBody := translationOutputMap[bodyKey]
+			titleOut, hasTitle := translationOutputMap[titleKey]
+
+			// Handle body skip (same language)
+			bodySkip := hasBody && bodyOut.From != "" && bodyOut.From == bodyOut.To
+			titleSkip := hasTitle && titleOut.From != "" && titleOut.From == titleOut.To
+
+			newBody := item.Body
+
+			// Apply body translation or skip marker
+			if hasBody {
+				if bodySkip {
+					newBody = subtitle.ApplySkipMarker(newBody, lang)
+					fmt.Fprintf(os.Stderr, "Skipping %s body for %s (already in %s)\n", contentLabel(item), lang, bodyOut.From)
+				} else {
+					var applyErr error
+					newBody, applyErr = subtitle.ApplyTranslation(newBody, bodyOut.Text, lang, model)
+					if applyErr != nil {
+						return fmt.Errorf("failed to apply translation for %s: %w", contentLabel(item), applyErr)
+					}
+				}
+			}
+
+			// Apply title translation
+			if hasTitle && item.Title != "" {
+				originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
+				newBody = subtitle.PrepareTitleTranslation(newBody, originalTitle)
+
+				if titleSkip {
+					newBody = subtitle.ApplyTitleSkipMarker(newBody, originalTitle, lang)
+					fmt.Fprintf(os.Stderr, "Skipping %s title for %s (already in %s)\n", contentLabel(item), lang, titleOut.From)
+				} else {
+					newBody = subtitle.ApplyTitleTranslation(newBody, lang, titleOut.Text)
+
+					// Build the new title
+					existingTranslations := subtitle.CollectExistingTitleTranslations(newBody, item.Title)
+					existingTranslations[lang] = titleOut.Text
+					newTitle := subtitle.BuildTitle(originalTitle, existingTranslations)
+
+					if len(newTitle) > subtitle.GitHubMaxTitleLength {
+						fmt.Fprintf(os.Stderr, "Warning: title too long (%d chars) for %s, skipping title translation for %s\n", len(newTitle), contentLabel(item), lang)
+					} else if newTitle != item.Title {
+						if dryRun {
+							fmt.Fprintf(os.Stderr, "[dry-run] %s title (%s): %s\n", contentLabel(item), lang, newTitle)
+						} else {
+							if err := github.UpdateTitle(parsed, item, newTitle); err != nil {
+								if errors.Is(err, github.ErrValidationFailed) {
+									fmt.Fprintf(os.Stderr, "Skipping title for %s (not editable)\n", contentLabel(item))
+								} else {
+									return fmt.Errorf("failed to update title for %s: %w", contentLabel(item), err)
+								}
 							} else {
-								return fmt.Errorf("failed to update %s: %w", contentLabel(item), err)
+								fmt.Fprintf(os.Stderr, "Updated %s title with %s translation\n", contentLabel(item), lang)
+								items = updateItemTitle(items, item, newTitle)
 							}
 						}
 					}
-					items = updateItemBody(items, item, newBody)
 				}
-				fmt.Fprintf(os.Stderr, "Skipping %s for %s (already in %s)\n", contentLabel(item), lang, out.From)
-				continue
 			}
 
-			newBody, err := subtitle.ApplyTranslation(item.Body, out.Text, lang, model)
-			if err != nil {
-				return fmt.Errorf("failed to apply translation for %s: %w", contentLabel(item), err)
+			if newBody == item.Body {
+				continue
 			}
 
 			if dryRun {
@@ -237,7 +318,6 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			}
 			fmt.Fprintf(os.Stderr, "Updated %s with %s translation\n", contentLabel(item), lang)
 
-			// Update the item's body for subsequent language passes
 			items = updateItemBody(items, item, newBody)
 		}
 	}
@@ -249,6 +329,16 @@ func updateItemBody(items []github.ContentItem, target github.ContentItem, newBo
 	for i, item := range items {
 		if item.Type == target.Type && item.NodeID == target.NodeID && item.DatabaseID == target.DatabaseID && item.Number == target.Number {
 			items[i].Body = newBody
+			break
+		}
+	}
+	return items
+}
+
+func updateItemTitle(items []github.ContentItem, target github.ContentItem, newTitle string) []github.ContentItem {
+	for i, item := range items {
+		if item.Type == target.Type && item.NodeID == target.NodeID && item.DatabaseID == target.DatabaseID && item.Number == target.Number {
+			items[i].Title = newTitle
 			break
 		}
 	}
