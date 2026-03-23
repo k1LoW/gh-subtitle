@@ -45,7 +45,7 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringSliceVarP(&translateLangs, "translate", "t", nil, "Target language(s) for translation (required, can be specified multiple times)")
-	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-4o-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-4o-mini)")
+	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-4o-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-4o-mini, openai:gpt-4o with --byok)")
 	rootCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Show translations without updating GitHub")
 	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
 	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
@@ -293,8 +293,8 @@ func buildProviderConfig(provider string, byokMode bool, flagBaseURL string) (*c
 	}
 
 	type providerDefaults struct {
-		typ        string
-		defaultURL string
+		typ         string
+		defaultURL  string
 		keyRequired bool
 	}
 
