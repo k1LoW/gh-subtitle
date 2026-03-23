@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	copilot "github.com/github/copilot-sdk/go"
 	"github.com/k1LoW/gh-subtitle/internal/github"
 	"github.com/k1LoW/gh-subtitle/internal/subtitle"
 	"github.com/k1LoW/gh-subtitle/internal/translator"
@@ -23,6 +24,8 @@ var (
 	bodyOnly       bool
 	clearMode      bool
 	includeBots    bool
+	byok           bool
+	baseURL        string
 )
 
 var rootCmd = &cobra.Command{
@@ -42,11 +45,13 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringSliceVarP(&translateLangs, "translate", "t", nil, "Target language(s) for translation (required, can be specified multiple times)")
-	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-4o-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-4o-mini)")
+	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-4o-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-4o-mini, openai:gpt-4o with --byok)")
 	rootCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Show translations without updating GitHub")
 	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
 	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
 	rootCmd.Flags().BoolVar(&includeBots, "include-bots", false, "Include bot comments in translation (skipped by default)")
+	rootCmd.Flags().BoolVar(&byok, "byok", false, "Use BYOK (Bring Your Own Key) mode with Copilot SDK (GH_SUBTITLE_PROVIDER_API_KEY required for openai/anthropic/azure)")
+	rootCmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL for BYOK provider (env: GH_SUBTITLE_PROVIDER_BASE_URL)")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -156,8 +161,12 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			if err != nil {
 				return err
 			}
+			providerConfig, err := buildProviderConfig(provider, byok, baseURL)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(os.Stderr, "Starting %s translator (model: %s)...\n", provider, modelName)
-			trans, transErr = newTranslator(ctx, provider, modelName)
+			trans, transErr = translator.NewCopilotTranslator(ctx, modelName, providerConfig)
 			if transErr != nil {
 				return fmt.Errorf("failed to create translator: %w", transErr)
 			}
@@ -266,18 +275,63 @@ func contentKey(item github.ContentItem) string {
 func parseModel(model string) (provider, modelName string, err error) {
 	parts := strings.SplitN(model, ":", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-4o-mini)", model)
+		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-4o-mini, openai:gpt-4o)", model)
 	}
 	return parts[0], parts[1], nil
 }
 
-func newTranslator(ctx context.Context, provider, modelName string) (translator.Translator, error) {
-	switch provider {
-	case "copilot":
-		return translator.NewCopilotTranslator(ctx, modelName)
-	default:
-		return nil, fmt.Errorf("unsupported provider: %q (supported: copilot)", provider)
+func buildProviderConfig(provider string, byokMode bool, flagBaseURL string) (*copilot.ProviderConfig, error) {
+	if !byokMode {
+		if provider != "copilot" {
+			return nil, fmt.Errorf("provider %q requires --byok flag", provider)
+		}
+		return nil, nil
 	}
+
+	if provider == "copilot" {
+		return nil, fmt.Errorf("--byok cannot be used with copilot provider")
+	}
+
+	type providerDefaults struct {
+		typ         string
+		defaultURL  string
+		keyRequired bool
+	}
+
+	known := map[string]providerDefaults{
+		"openai":    {typ: "openai", defaultURL: "https://api.openai.com/v1", keyRequired: true},
+		"anthropic": {typ: "anthropic", defaultURL: "https://api.anthropic.com", keyRequired: true},
+		"azure":     {typ: "azure", defaultURL: "", keyRequired: true},
+		"ollama":    {typ: "openai", defaultURL: "http://localhost:11434/v1", keyRequired: false},
+	}
+
+	defaults, ok := known[provider]
+	if !ok {
+		return nil, fmt.Errorf("unsupported BYOK provider: %q (supported: openai, anthropic, azure, ollama)", provider)
+	}
+
+	apiKey := os.Getenv("GH_SUBTITLE_PROVIDER_API_KEY")
+	if defaults.keyRequired && apiKey == "" {
+		return nil, fmt.Errorf("GH_SUBTITLE_PROVIDER_API_KEY environment variable is required for provider %q", provider)
+	}
+
+	// Resolve base URL: --base-url flag > env var > provider default
+	resolvedURL := flagBaseURL
+	if resolvedURL == "" {
+		resolvedURL = os.Getenv("GH_SUBTITLE_PROVIDER_BASE_URL")
+	}
+	if resolvedURL == "" {
+		resolvedURL = defaults.defaultURL
+	}
+	if resolvedURL == "" {
+		return nil, fmt.Errorf("--base-url or GH_SUBTITLE_PROVIDER_BASE_URL is required for provider %q", provider)
+	}
+
+	return &copilot.ProviderConfig{
+		Type:    defaults.typ,
+		BaseURL: resolvedURL,
+		APIKey:  apiKey,
+	}, nil
 }
 
 func contentLabel(item github.ContentItem) string {

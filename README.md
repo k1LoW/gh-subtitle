@@ -33,6 +33,18 @@ $ gh subtitle https://github.com/owner/repo/pull/123 --clear -t ja
 
 # Use a different model
 $ gh subtitle https://github.com/owner/repo/pull/123 -t ja -m copilot:gpt-4o
+
+# BYOK: Use OpenAI directly
+$ GH_SUBTITLE_PROVIDER_API_KEY=sk-... gh subtitle https://github.com/owner/repo/pull/123 -t ja --byok -m openai:gpt-4o
+
+# BYOK: Use Anthropic directly
+$ GH_SUBTITLE_PROVIDER_API_KEY=sk-ant-... gh subtitle https://github.com/owner/repo/pull/123 -t ja --byok -m anthropic:claude-sonnet-4-20250514
+
+# BYOK: Use Ollama (local, no API key needed)
+$ gh subtitle https://github.com/owner/repo/pull/123 -t ja --byok -m ollama:llama3
+
+# BYOK: Use Azure OpenAI (base URL required)
+$ GH_SUBTITLE_PROVIDER_API_KEY=... gh subtitle https://github.com/owner/repo/pull/123 -t ja --byok -m azure:gpt-4 --base-url https://myinstance.openai.azure.com
 ```
 
 ### Supported Content
@@ -74,29 +86,51 @@ $ gh extension install k1LoW/gh-subtitle
 
 ## Authentication
 
-### Local
+### Copilot Mode (default)
 
-By default, gh-subtitle uses the logged-in user's authentication via the `gh` CLI (i.e., `gh auth login`). No additional configuration is needed.
+By default, gh-subtitle uses the Copilot SDK with the logged-in user's authentication via the `gh` CLI (i.e., `gh auth login`). No additional configuration is needed.
 
-### GitHub Actions / CI
+For CI environments, set `GITHUB_TOKEN` for Copilot SDK authentication.
 
-For CI environments, set a token via environment variables:
-
-| Environment Variable | Description |
-|---|---|
-| `GH_SUBTITLE_COPILOT_TOKEN` | Token for Copilot SDK authentication (highest priority) |
-| `GITHUB_TOKEN` | Fallback token for Copilot SDK authentication |
-
-Token resolution order: `GH_SUBTITLE_COPILOT_TOKEN` → `GITHUB_TOKEN` → logged-in user (via `gh auth`).
+Token resolution order: `GITHUB_TOKEN` → logged-in user (via `gh auth`).
 
 Note: The `gh` CLI uses `GH_TOKEN` or `GITHUB_TOKEN` for GitHub API operations independently.
 
 ```yaml
-# Example GitHub Actions step
+# Example GitHub Actions step (Copilot mode)
 - run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja
   env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### BYOK Mode (`--byok`)
+
+BYOK (Bring Your Own Key) mode allows you to use external LLM providers directly via the Copilot SDK's BYOK support. This is useful when Copilot's default authentication is not available (e.g., with GitHub App installation tokens).
+
+| Environment Variable | Description |
+|---|---|
+| `GH_SUBTITLE_PROVIDER_API_KEY` | API key for the BYOK provider (required for `openai`, `anthropic`, `azure`) |
+| `GH_SUBTITLE_PROVIDER_BASE_URL` | Base URL override for the BYOK provider |
+
+Supported providers:
+
+| Provider | Type | Default Base URL | API Key |
+|----------|------|-----------------|---------|
+| `openai` | `openai` | `https://api.openai.com/v1` | Required |
+| `anthropic` | `anthropic` | `https://api.anthropic.com` | Required |
+| `azure` | `azure` | *(none — must be specified)* | Required |
+| `ollama` | `openai` | `http://localhost:11434/v1` | Not required |
+
+Base URL resolution order: `--base-url` flag → `GH_SUBTITLE_PROVIDER_BASE_URL` env var → provider default.
+
+Note: `GH_TOKEN` is for `gh` CLI API operations. Translation itself uses `GH_SUBTITLE_PROVIDER_API_KEY` for the configured provider.
+
+```yaml
+# Example GitHub Actions step (BYOK with OpenAI)
+- run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja --byok -m openai:gpt-4o
+  env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    GH_SUBTITLE_COPILOT_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+    GH_SUBTITLE_PROVIDER_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
 ## Command Line Options
@@ -109,6 +143,8 @@ Note: The `gh` CLI uses `GH_TOKEN` or `GITHUB_TOKEN` for GitHub API operations i
 | `--body-only` | | Translate only the body (skip comments) |
 | `--clear` | | Remove translation marker blocks (all languages, or specific languages with `-t`) |
 | `--include-bots` | | Include bot comments in translation (skipped by default) |
+| `--byok` | | Use BYOK mode with an external LLM provider (`GH_SUBTITLE_PROVIDER_API_KEY` required for openai/anthropic/azure) |
+| `--base-url` | | Base URL for BYOK provider (env: `GH_SUBTITLE_PROVIDER_BASE_URL`) |
 
 ## Contributing
 
