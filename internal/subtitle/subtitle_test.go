@@ -259,6 +259,20 @@ func TestNeedsTitleTranslation(t *testing.T) {
 			lang:  "ja",
 			want:  false,
 		},
+		{
+			name:  "title with separator externally edited - needs translation",
+			body:  "Some body text\n" + titleOriginalMarker(title) + "\n" + titleHashMarker("ja", hash),
+			title: "Edited title / バグ修正",
+			lang:  "ja",
+			want:  true,
+		},
+		{
+			name:  "title without separator externally edited - needs translation",
+			body:  "Some body text\n" + titleOriginalMarker(title) + "\n" + titleHashMarker("ja", hash),
+			title: "Completely different title",
+			lang:  "ja",
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -362,13 +376,13 @@ func TestApplyTitleTranslation(t *testing.T) {
 	body := "Some body\n" + titleOriginalMarker(title)
 
 	// Apply first language
-	body = ApplyTitleTranslation(body, "ja", "バグ修正")
+	body = ApplyTitleTranslation(body, "ja", title)
 	if !contains(body, "<!-- subtitle-title:ja sha256:") {
 		t.Error("should contain ja title marker")
 	}
 
 	// Apply second language
-	body = ApplyTitleTranslation(body, "ko", "버그 수정")
+	body = ApplyTitleTranslation(body, "ko", title)
 	if !contains(body, "<!-- subtitle-title:ko sha256:") {
 		t.Error("should contain ko title marker")
 	}

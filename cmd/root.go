@@ -91,8 +91,8 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 			continue
 		}
 
-		// Restore title if this is a body item with title
-		if item.Title != "" && !skipTitle {
+		// Restore title only when the original-title marker is present in the body
+		if item.Title != "" && !skipTitle && strings.Contains(item.Body, "subtitle-title-original") {
 			originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
 			if originalTitle != item.Title {
 				if dryRun {
@@ -166,6 +166,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 				continue
 			}
 
+			itemAdded := false
 			if needsBody {
 				original := subtitle.StripTranslation(item.Body)
 				if original != "" {
@@ -175,6 +176,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 						Text: original,
 					})
 					targetItems = append(targetItems, item)
+					itemAdded = true
 				}
 			}
 
@@ -185,7 +187,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 					Key:  titleKey,
 					Text: originalTitle,
 				})
-				if !needsBody {
+				if !itemAdded {
 					targetItems = append(targetItems, item)
 				}
 			}
@@ -262,15 +264,16 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 					newBody = subtitle.ApplyTitleSkipMarker(newBody, originalTitle, lang)
 					fmt.Fprintf(os.Stderr, "Skipping %s title for %s (already in %s)\n", contentLabel(item), lang, titleOut.From)
 				} else {
-					newBody = subtitle.ApplyTitleTranslation(newBody, lang, titleOut.Text)
+					newBody = subtitle.ApplyTitleTranslation(newBody, lang, originalTitle)
 
 					// Build the new title
 					existingTranslations := subtitle.CollectExistingTitleTranslations(newBody, item.Title)
 					existingTranslations[lang] = titleOut.Text
 					newTitle := subtitle.BuildTitle(originalTitle, existingTranslations)
 
-					if len(newTitle) > subtitle.GitHubMaxTitleLength {
-						fmt.Fprintf(os.Stderr, "Warning: title too long (%d chars) for %s, skipping title translation for %s\n", len(newTitle), contentLabel(item), lang)
+					titleLength := utf8.RuneCountInString(newTitle)
+					if titleLength > subtitle.GitHubMaxTitleLength {
+						fmt.Fprintf(os.Stderr, "Warning: title too long (%d chars) for %s, skipping title translation for %s\n", titleLength, contentLabel(item), lang)
 					} else if newTitle != item.Title {
 						if dryRun {
 							fmt.Fprintf(os.Stderr, "[dry-run] %s title (%s): %s\n", contentLabel(item), lang, newTitle)

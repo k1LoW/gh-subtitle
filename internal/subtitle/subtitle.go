@@ -199,15 +199,18 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 	// Determine the current original title (what should be translated)
 	currentOriginal := title
 	if before, _, found := strings.Cut(title, titleSeparator); found {
+		// If stored original differs from the title's first segment,
+		// the title was externally edited — force re-translation.
+		if storedOriginal != "" && storedOriginal != before {
+			return true
+		}
 		if storedOriginal != "" {
 			currentOriginal = storedOriginal
 		} else {
 			currentOriginal = before
 		}
-	}
-
-	// Check if the stored original differs from the current title's base
-	if storedOriginal != "" && storedOriginal != currentOriginal {
+	} else if storedOriginal != "" && storedOriginal != title {
+		// No separator, but stored original differs from full title — external change.
 		return true
 	}
 
@@ -233,8 +236,7 @@ func ExtractOriginalTitle(body, title string) string {
 }
 
 // ApplyTitleTranslation adds or updates the title translation marker in the body for the given language.
-func ApplyTitleTranslation(body, lang, translatedTitle string) string {
-	originalTitle := ExtractOriginalTitle(body, "")
+func ApplyTitleTranslation(body, lang, originalTitle string) string {
 	body = ensureTitleOriginalMarker(body, originalTitle)
 	return upsertTitleHashMarker(body, lang, computeHash(originalTitle))
 }
