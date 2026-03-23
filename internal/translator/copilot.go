@@ -17,12 +17,14 @@ const minCopilotVersion = "0.0.411"
 
 // CopilotTranslator implements Translator using the Copilot SDK.
 type CopilotTranslator struct {
-	client *copilot.Client
-	model  string
+	client   *copilot.Client
+	model    string
+	provider *copilot.ProviderConfig
 }
 
 // NewCopilotTranslator creates a new CopilotTranslator.
-func NewCopilotTranslator(ctx context.Context, model string) (*CopilotTranslator, error) {
+// When provider is non-nil, BYOK mode is used and the provider config is passed to session creation.
+func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.ProviderConfig) (*CopilotTranslator, error) {
 	if err := checkCopilotCLI(); err != nil {
 		return nil, err
 	}
@@ -41,8 +43,9 @@ func NewCopilotTranslator(ctx context.Context, model string) (*CopilotTranslator
 	}
 
 	return &CopilotTranslator{
-		client: client,
-		model:  model,
+		client:   client,
+		model:    model,
+		provider: provider,
 	}, nil
 }
 
@@ -67,6 +70,7 @@ Rules:
 	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		Model:               t.model,
+		Provider:            t.provider,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Content: systemPrompt,
 		},
@@ -165,11 +169,8 @@ func parseCopilotVersion(output string) string {
 }
 
 // resolveToken returns a token for Copilot SDK authentication.
-// Priority: GH_SUBTITLE_COPILOT_TOKEN > GITHUB_TOKEN > "" (use logged-in user).
+// Priority: GITHUB_TOKEN > "" (use gh auth logged-in user).
 func resolveToken() string {
-	if t := os.Getenv("GH_SUBTITLE_COPILOT_TOKEN"); t != "" {
-		return t
-	}
 	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 		return t
 	}

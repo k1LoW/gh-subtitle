@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	copilot "github.com/github/copilot-sdk/go"
 	"github.com/k1LoW/gh-subtitle/internal/github"
 	"github.com/k1LoW/gh-subtitle/internal/subtitle"
 	"github.com/k1LoW/gh-subtitle/internal/translator"
@@ -23,6 +24,8 @@ var (
 	bodyOnly       bool
 	clearMode      bool
 	includeBots    bool
+	byok           bool
+	baseURL        string
 )
 
 var rootCmd = &cobra.Command{
@@ -47,6 +50,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
 	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
 	rootCmd.Flags().BoolVar(&includeBots, "include-bots", false, "Include bot comments in translation (skipped by default)")
+	rootCmd.Flags().BoolVar(&byok, "byok", false, "Use BYOK (Bring Your Own Key) mode with Copilot SDK (requires GH_SUBTITLE_PROVIDER_API_KEY env var)")
+	rootCmd.Flags().StringVar(&baseURL, "base-url", "", "Base URL for BYOK provider (env: GH_SUBTITLE_PROVIDER_BASE_URL)")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -156,8 +161,12 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			if err != nil {
 				return err
 			}
+			providerConfig, err := buildProviderConfig(provider, byok)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(os.Stderr, "Starting %s translator (model: %s)...\n", provider, modelName)
-			trans, transErr = newTranslator(ctx, provider, modelName)
+			trans, transErr = newTranslator(ctx, modelName, providerConfig)
 			if transErr != nil {
 				return fmt.Errorf("failed to create translator: %w", transErr)
 			}
@@ -271,13 +280,62 @@ func parseModel(model string) (provider, modelName string, err error) {
 	return parts[0], parts[1], nil
 }
 
-func newTranslator(ctx context.Context, provider, modelName string) (translator.Translator, error) {
-	switch provider {
-	case "copilot":
-		return translator.NewCopilotTranslator(ctx, modelName)
-	default:
-		return nil, fmt.Errorf("unsupported provider: %q (supported: copilot)", provider)
+func newTranslator(ctx context.Context, modelName string, providerConfig *copilot.ProviderConfig) (translator.Translator, error) {
+	return translator.NewCopilotTranslator(ctx, modelName, providerConfig)
+}
+
+func buildProviderConfig(provider string, byokMode bool) (*copilot.ProviderConfig, error) {
+	if !byokMode {
+		if provider != "copilot" {
+			return nil, fmt.Errorf("provider %q requires --byok flag", provider)
+		}
+		return nil, nil
 	}
+
+	if provider == "copilot" {
+		return nil, fmt.Errorf("--byok cannot be used with copilot provider")
+	}
+
+	type providerDefaults struct {
+		typ        string
+		defaultURL string
+		keyRequired bool
+	}
+
+	known := map[string]providerDefaults{
+		"openai":    {typ: "openai", defaultURL: "https://api.openai.com/v1", keyRequired: true},
+		"anthropic": {typ: "anthropic", defaultURL: "https://api.anthropic.com", keyRequired: true},
+		"azure":     {typ: "azure", defaultURL: "", keyRequired: true},
+		"ollama":    {typ: "openai", defaultURL: "http://localhost:11434/v1", keyRequired: false},
+	}
+
+	defaults, ok := known[provider]
+	if !ok {
+		return nil, fmt.Errorf("unsupported BYOK provider: %q (supported: openai, anthropic, azure, ollama)", provider)
+	}
+
+	apiKey := os.Getenv("GH_SUBTITLE_PROVIDER_API_KEY")
+	if defaults.keyRequired && apiKey == "" {
+		return nil, fmt.Errorf("GH_SUBTITLE_PROVIDER_API_KEY environment variable is required for provider %q", provider)
+	}
+
+	// Resolve base URL: --base-url flag > env var > provider default
+	resolvedURL := baseURL
+	if resolvedURL == "" {
+		resolvedURL = os.Getenv("GH_SUBTITLE_PROVIDER_BASE_URL")
+	}
+	if resolvedURL == "" {
+		resolvedURL = defaults.defaultURL
+	}
+	if resolvedURL == "" {
+		return nil, fmt.Errorf("--base-url or GH_SUBTITLE_PROVIDER_BASE_URL is required for provider %q", provider)
+	}
+
+	return &copilot.ProviderConfig{
+		Type:    defaults.typ,
+		BaseURL: resolvedURL,
+		APIKey:  apiKey,
+	}, nil
 }
 
 func contentLabel(item github.ContentItem) string {
