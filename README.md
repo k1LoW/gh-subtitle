@@ -100,7 +100,7 @@ Note: The `gh` CLI uses `GH_TOKEN` or `GITHUB_TOKEN` for GitHub API operations i
 # Example GitHub Actions step (Copilot mode)
 - run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja
   env:
-    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ### BYOK Mode (`--byok`)
