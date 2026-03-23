@@ -30,6 +30,7 @@ type ContentItem struct {
 	NodeID     string // GraphQL node ID (used for Discussion operations)
 	DatabaseID int64  // REST numeric ID (used for Issue/Review comment operations)
 	Number     int    // PR/Issue number (used for body updates)
+	Title      string // PR/Issue/Discussion title (empty for comments)
 	Body       string
 	IsBot      bool // true if the author is a bot
 }
