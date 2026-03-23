@@ -226,7 +226,15 @@ func NeedsTitleTranslation(body, title, lang string) bool {
 	hash := computeHash(currentOriginal)
 	for _, m := range titleHashRe.FindAllStringSubmatch(body, -1) {
 		if m[1] == lang {
-			return m[2] != hash
+			if m[2] != hash {
+				return true
+			}
+			// Hash matches, but if a non-skip marker exists and the title
+			// has no separator, the translated segment was externally removed.
+			if m[3] != " skip" && !strings.Contains(title, titleSeparator) {
+				return true
+			}
+			return false
 		}
 	}
 	return true

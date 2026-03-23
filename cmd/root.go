@@ -110,8 +110,12 @@ func runClear(parsed *github.ParsedURL, items []github.ContentItem) error {
 				// Clearing all languages — restore to original title
 				newTitle = originalTitle
 			} else {
-				// Clearing specific languages — rebuild title from remaining translations
-				remaining := subtitle.CollectExistingTitleTranslations(newBody, item.Title)
+				// Clearing specific languages — rebuild title from remaining translations.
+				// Collect from original body so marker-to-segment alignment is preserved.
+				remaining := subtitle.CollectExistingTitleTranslations(item.Body, item.Title)
+				for _, lang := range translateLangs {
+					delete(remaining, lang)
+				}
 				newTitle = subtitle.BuildTitle(originalTitle, remaining)
 			}
 			if newTitle != item.Title {

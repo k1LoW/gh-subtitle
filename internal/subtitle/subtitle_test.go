@@ -234,7 +234,7 @@ func TestNeedsTitleTranslation(t *testing.T) {
 		{
 			name:  "matching hash - no translation needed",
 			body:  "Some body text\n" + titleOriginalMarker(title) + "\n" + titleHashMarker("ja", hash),
-			title: title,
+			title: title + " / バグ修正",
 			lang:  "ja",
 			want:  false,
 		},
@@ -279,6 +279,20 @@ func TestNeedsTitleTranslation(t *testing.T) {
 			title: "Fix path / to file",
 			lang:  "ja",
 			want:  true,
+		},
+		{
+			name:  "markers exist but translated segment externally removed - needs translation",
+			body:  "Some body text\n" + titleOriginalMarker(title) + "\n" + titleHashMarker("ja", hash),
+			title: title,
+			lang:  "ja",
+			want:  true,
+		},
+		{
+			name:  "skip marker exists and title has no separator - no translation needed",
+			body:  "Some body text\n" + titleOriginalMarker(title) + "\n" + titleSkipHashMarker("ja", hash),
+			title: title,
+			lang:  "ja",
+			want:  false,
 		},
 	}
 
