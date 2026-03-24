@@ -68,7 +68,8 @@ Rules:
 - Do not translate content inside code blocks or inline code.
 - Do not translate URLs, image paths, GitHub @mentions, or #references.
 - Output ONLY the JSON array. No explanation, no markdown fences.
-- If a text is already in the target language, return it unchanged.`, lang)
+- If a text is already in the target language, return it unchanged.
+- For the "from" field, detect the primary language based on the substantive prose written by the author (explanations, descriptions, comments), not boilerplate or structural elements. Ignore bilingual template headers, form labels, fixed-choice options, code blocks, and other structural elements that may appear in a different language.`, lang)
 
 	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
