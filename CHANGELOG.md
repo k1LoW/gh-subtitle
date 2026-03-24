@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.4.2](https://github.com/k1LoW/gh-subtitle/compare/v0.4.1...v0.4.2) - 2026-03-24
+### New Features 🎉
+- fix: improve source language detection for mixed-language content by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/12
+
 ## [v0.4.1](https://github.com/k1LoW/gh-subtitle/compare/v0.4.0...v0.4.1) - 2026-03-24
 ### New Features 🎉
 - fix: accept GH_TOKEN env var for Copilot SDK token resolution by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/10
