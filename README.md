@@ -105,11 +105,9 @@ $ gh extension install k1LoW/gh-subtitle
 
 By default, gh-subtitle uses the Copilot SDK with the logged-in user's authentication via the `gh` CLI (i.e., `gh auth login`). No additional configuration is needed.
 
-For CI environments, set `GITHUB_TOKEN` for Copilot SDK authentication.
+For CI environments, set `GH_TOKEN` or `GITHUB_TOKEN` for authentication.
 
-Token resolution order: `GITHUB_TOKEN` → logged-in user (via `gh auth`).
-
-Note: The `gh` CLI uses `GH_TOKEN` or `GITHUB_TOKEN` for GitHub API operations independently.
+Token resolution order (both Copilot SDK and `gh` CLI): `GH_TOKEN` → `GITHUB_TOKEN` → logged-in user (via `gh auth`).
 
 ```yaml
 # Example GitHub Actions step (Copilot mode)
@@ -138,7 +136,7 @@ Supported providers:
 
 Base URL resolution order: `--base-url` flag → `GH_SUBTITLE_PROVIDER_BASE_URL` env var → provider default.
 
-Note: `GH_TOKEN` is for `gh` CLI API operations. Translation itself uses `GH_SUBTITLE_PROVIDER_API_KEY` for the configured provider.
+Note: `GH_TOKEN`/`GITHUB_TOKEN` is for `gh` CLI and Copilot SDK API operations. In BYOK mode, translation itself uses `GH_SUBTITLE_PROVIDER_API_KEY` for the configured provider.
 
 ```yaml
 # Example GitHub Actions step (BYOK with OpenAI)

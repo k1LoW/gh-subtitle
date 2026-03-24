@@ -32,7 +32,10 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 	opts := &copilot.ClientOptions{
 		LogLevel: "error",
 	}
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+	// Follow the same token resolution order as the gh CLI: GH_TOKEN > GITHUB_TOKEN > gh auth
+	if token := os.Getenv("GH_TOKEN"); token != "" {
+		opts.GitHubToken = token
+	} else if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		opts.GitHubToken = token
 	}
 
