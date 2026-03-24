@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.4.3](https://github.com/k1LoW/gh-subtitle/compare/v0.4.2...v0.4.3) - 2026-03-24
+### Other Changes
+- fix: improve translation prompt for titles with mixed technical terms by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/14
+
 ## [v0.4.2](https://github.com/k1LoW/gh-subtitle/compare/v0.4.1...v0.4.2) - 2026-03-24
 ### New Features 🎉
 - fix: improve source language detection for mixed-language content by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/12
