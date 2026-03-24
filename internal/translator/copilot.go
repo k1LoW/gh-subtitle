@@ -69,7 +69,8 @@ Rules:
 - Do not translate URLs, image paths, GitHub @mentions, or #references.
 - Output ONLY the JSON array. No explanation, no markdown fences.
 - If a text is already in the target language, return it unchanged.
-- For the "from" field, detect the primary language based on the substantive prose written by the author (explanations, descriptions, comments), not boilerplate or structural elements. Ignore bilingual template headers, form labels, fixed-choice options, code blocks, and other structural elements that may appear in a different language.`, lang)
+- For the "from" field, detect the primary language based on the substantive prose written by the author (explanations, descriptions, comments), not boilerplate or structural elements. Ignore bilingual template headers, form labels, fixed-choice options, code blocks, and other structural elements that may appear in a different language.
+- IMPORTANT: When text mixes technical English terms (e.g. library names, API names, component names) with non-English grammar and particles, detect the language based on the grammatical structure, NOT the technical terms. For example, "React Router の設定方法が分からない" is Japanese despite containing English technical terms — it MUST be fully translated to the target language (e.g. "I don't understand how to configure React Router"). Always translate the full sentence; never return the original text when the target language differs from the detected source language.`, lang)
 
 	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
