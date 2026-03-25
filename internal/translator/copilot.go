@@ -66,6 +66,7 @@ Each output object must have: "key", "text" (translated), "from" (detected sourc
 Rules:
 - Preserve all Markdown formatting, links, images, code blocks, and HTML tags exactly.
 - Do not translate content inside code blocks or inline code.
+- Do not escape or modify any characters inside code blocks or inline code. For example, keep ` + "`</>`, `<div>`, `</Component>`" + ` as-is — never convert them to HTML entities like ` + "`&lt;/&gt;`" + `.
 - Do not translate URLs, image paths, GitHub @mentions, or #references.
 - Output ONLY the JSON array. No explanation, no markdown fences.
 - If a text is already in the target language, return it unchanged.
