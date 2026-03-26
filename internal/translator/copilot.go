@@ -69,9 +69,13 @@ Rules:
 - Do not escape or modify any characters inside code blocks or inline code. For example, keep ` + "`</>`, `<div>`, `</Component>`" + ` as-is — never convert them to HTML entities like ` + "`&lt;/&gt;`" + `.
 - Do not translate URLs, image paths, GitHub @mentions, or #references.
 - Output ONLY the JSON array. No explanation, no markdown fences.
-- If a text is already in the target language, return it unchanged.
-- For the "from" field, detect the primary language based on the substantive prose written by the author (explanations, descriptions, comments), not boilerplate or structural elements. Ignore bilingual template headers, form labels, fixed-choice options, code blocks, and other structural elements that may appear in a different language.
-- IMPORTANT: When text mixes technical English terms (e.g. library names, API names, component names) with non-English grammar and particles, detect the language based on the grammatical structure, NOT the technical terms. For example, "React Router の設定方法が分からない" is Japanese despite containing English technical terms — it MUST be fully translated to the target language (e.g. "I don't understand how to configure React Router"). Always translate the full sentence; never return the original text when the target language differs from the detected source language.`, lang)
+- CRITICAL: If a text is already in the target language, return the "text" field with the EXACT original string, byte-for-byte. Do NOT rephrase, paraphrase, reformat, or "clean up" the text. The output must be identical to the input.
+- For the "from" field, detect the primary language based on the grammatical structure (particles, conjugations, word order, inflections), NOT based on vocabulary or technical terms. Ignore boilerplate, bilingual template headers, form labels, fixed-choice options, code blocks, and other structural elements.
+- IMPORTANT: When text mixes technical English terms (e.g. library names, API names, component names, variable names) with non-English grammar, detect the language based on grammatical elements. For example:
+  - "DBのindexが正しくsetupされていない" is Japanese (particles の, が and verb されていない) — "from" MUST be "ja".
+  - "React Router の設定方法が分からない" is Japanese — "from" MUST be "ja".
+  - Even very short text: if it contains particles like の, に, が, は, を, で, も, or verb endings like する, した, ない, ます, ている, the language is Japanese regardless of how many English/technical terms are present.
+  When the detected source language differs from the target, translate the full sentence. When they match, return the text unchanged (see CRITICAL rule above).`, lang)
 
 	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
