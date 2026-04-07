@@ -392,6 +392,18 @@ func TestBuildTitle(t *testing.T) {
 			translations: map[string]string{"ja": "バグ修正", "ko": ""},
 			want:         "Fix bug / バグ修正",
 		},
+		{
+			name:         "skip translation identical to original",
+			original:     "バグ修正",
+			translations: map[string]string{"en": "Bug fix", "ja": "バグ修正"},
+			want:         "バグ修正 / Bug fix",
+		},
+		{
+			name:         "all translations identical to original",
+			original:     "Fix bug",
+			translations: map[string]string{"en": "Fix bug"},
+			want:         "Fix bug",
+		},
 	}
 
 	for _, tt := range tests {

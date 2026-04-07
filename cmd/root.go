@@ -278,9 +278,13 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 			if hasTitle && item.Title != "" {
 				originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
 
-				if titleSkip {
-					newBody = subtitle.ApplyTitleSkipMarker(newBody, originalTitle, lang)
-					fmt.Fprintf(os.Stderr, "Skipping %s title for %s (already in %s)\n", contentLabel(item), lang, titleOut.From)
+				if titleSkip || titleOut.Text == originalTitle {
+					newBody = subtitle.ApplyTitleSkipMarker(newBody, lang, originalTitle)
+					skipReason := "translation unchanged"
+					if titleSkip {
+						skipReason = fmt.Sprintf("already in %s", titleOut.From)
+					}
+					fmt.Fprintf(os.Stderr, "Skipping %s title for %s (%s)\n", contentLabel(item), lang, skipReason)
 				} else {
 					// Build the new title first, apply marker only after successful update
 					existingTranslations := subtitle.CollectExistingTitleTranslations(newBody, item.Title)

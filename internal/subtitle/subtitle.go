@@ -281,8 +281,7 @@ func ApplyTitleTranslation(body, lang, originalTitle string) string {
 }
 
 // ApplyTitleSkipMarker adds a title skip marker for same-language skip (no translation needed).
-func ApplyTitleSkipMarker(body, title, lang string) string {
-	originalTitle := ExtractOriginalTitle(body, title)
+func ApplyTitleSkipMarker(body, lang, originalTitle string) string {
 	body = ensureTitleOriginalMarker(body, originalTitle)
 	return upsertTitleSkipHashMarker(body, lang, computeHash(originalTitle))
 }
@@ -360,7 +359,7 @@ func BuildTitle(originalTitle string, translations map[string]string) string {
 
 	parts := []string{originalTitle}
 	for _, lang := range langs {
-		if t := translations[lang]; t != "" {
+		if t := translations[lang]; t != "" && t != originalTitle {
 			parts = append(parts, t)
 		}
 	}
