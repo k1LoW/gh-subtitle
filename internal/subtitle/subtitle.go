@@ -360,7 +360,7 @@ func BuildTitle(originalTitle string, translations map[string]string) string {
 
 	parts := []string{originalTitle}
 	for _, lang := range langs {
-		if t := translations[lang]; t != "" {
+		if t := translations[lang]; t != "" && t != originalTitle {
 			parts = append(parts, t)
 		}
 	}
