@@ -279,7 +279,7 @@ func runTranslate(ctx context.Context, parsed *github.ParsedURL, items []github.
 				originalTitle := subtitle.ExtractOriginalTitle(item.Body, item.Title)
 
 				if titleSkip || titleOut.Text == originalTitle {
-					newBody = subtitle.ApplyTitleSkipMarker(newBody, originalTitle, lang)
+					newBody = subtitle.ApplyTitleSkipMarker(newBody, lang, originalTitle)
 					fmt.Fprintf(os.Stderr, "Skipping %s title for %s (translation unchanged)\n", contentLabel(item), lang)
 				} else {
 					// Build the new title first, apply marker only after successful update

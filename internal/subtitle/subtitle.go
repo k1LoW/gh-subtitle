@@ -281,7 +281,7 @@ func ApplyTitleTranslation(body, lang, originalTitle string) string {
 }
 
 // ApplyTitleSkipMarker adds a title skip marker for same-language skip (no translation needed).
-func ApplyTitleSkipMarker(body, originalTitle, lang string) string {
+func ApplyTitleSkipMarker(body, lang, originalTitle string) string {
 	body = ensureTitleOriginalMarker(body, originalTitle)
 	return upsertTitleSkipHashMarker(body, lang, computeHash(originalTitle))
 }
