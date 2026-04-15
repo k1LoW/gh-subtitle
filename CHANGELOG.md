@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.4.7](https://github.com/k1LoW/gh-subtitle/compare/v0.4.6...v0.4.7) - 2026-04-15
+### Dependency Updates ⬆️
+- chore(deps): bump github.com/github/copilot-sdk/go from 0.2.0 to 0.2.1 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/22
+- chore(deps): bump softprops/action-gh-release from 2 to 3 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/24
+- chore(deps): bump github.com/github/copilot-sdk/go from 0.2.1 to 0.2.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/25
+
 ## [v0.4.6](https://github.com/k1LoW/gh-subtitle/compare/v0.4.5...v0.4.6) - 2026-04-07
 ### Other Changes
 - fix: prevent title duplication when translation matches original by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/20
