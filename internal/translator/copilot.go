@@ -100,17 +100,13 @@ Rules:
 	done := make(chan struct{})
 
 	unsubscribe := session.On(func(event copilot.SessionEvent) {
-		switch event.Type {
-		case "assistant.message":
-			if event.Data.Content != nil {
-				responseContent = *event.Data.Content
-			}
-		case "session.idle":
+		switch d := event.Data.(type) {
+		case *copilot.AssistantMessageData:
+			responseContent = d.Content
+		case *copilot.SessionIdleData:
 			close(done)
-		case "error":
-			if event.Data.Content != nil {
-				eventErr = fmt.Errorf("copilot error: %s", *event.Data.Content)
-			}
+		case *copilot.SessionErrorData:
+			eventErr = fmt.Errorf("copilot error: %s", d.Message)
 			select {
 			case <-done:
 			default:
