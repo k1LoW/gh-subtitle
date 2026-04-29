@@ -3,7 +3,7 @@ module github.com/k1LoW/gh-subtitle
 go 1.26.1
 
 require (
-	github.com/github/copilot-sdk/go v0.2.2
+	github.com/github/copilot-sdk/go v0.3.0
 	github.com/spf13/cobra v1.10.2
 )
 
