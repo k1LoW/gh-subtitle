@@ -35,7 +35,7 @@ $ gh subtitle https://github.com/owner/repo/pull/123 --clear
 $ gh subtitle https://github.com/owner/repo/pull/123 --clear -t ja
 
 # Use a different model
-$ gh subtitle https://github.com/owner/repo/pull/123 -t ja -m copilot:gpt-4o
+$ gh subtitle https://github.com/owner/repo/pull/123 -t ja -m copilot:claude-sonnet-4.5
 
 # BYOK: Use OpenAI directly
 $ GH_SUBTITLE_PROVIDER_API_KEY=sk-... gh subtitle https://github.com/owner/repo/pull/123 -t ja --byok -m openai:gpt-4o
@@ -79,7 +79,7 @@ Original content...
 
 <!-- subtitle:ja:start sha256:a1b2c3d4 -->
 ---
-<sub>🌐 Translated by [gh-subtitle](https://github.com/k1LoW/gh-subtitle) (model: copilot:gpt-4o-mini)</sub>
+<sub>🌐 Translated by [gh-subtitle](https://github.com/k1LoW/gh-subtitle) (model: copilot:gpt-5-mini)</sub>
 
 日本語翻訳...
 <!-- subtitle:ja:end -->
@@ -151,7 +151,7 @@ Note: `GH_TOKEN`/`GITHUB_TOKEN` is for `gh` CLI and Copilot SDK API operations. 
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--translate` | `-t` | Target language(s) for translation (required, can be specified multiple times) |
-| `--model` | `-m` | Model to use in `<provider>:<model_name>` format (default: `copilot:gpt-4o-mini`) |
+| `--model` | `-m` | Model to use in `<provider>:<model_name>` format (default: `copilot:gpt-5-mini`) |
 | `--dry-run` | `-n` | Show translations without updating GitHub |
 | `--body-only` | | Translate only the body (skip comments) |
 | `--clear` | | Remove translation marker blocks (all languages, or specific languages with `-t`) |

@@ -46,7 +46,7 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringSliceVarP(&translateLangs, "translate", "t", nil, "Target language(s) for translation (required, can be specified multiple times)")
-	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-4o-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-4o-mini, openai:gpt-4o with --byok)")
+	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-5-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-5-mini, openai:gpt-4o with --byok)")
 	rootCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Show translations without updating GitHub")
 	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
 	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
@@ -375,7 +375,7 @@ func contentKey(item github.ContentItem) string {
 func parseModel(model string) (provider, modelName string, err error) {
 	parts := strings.SplitN(model, ":", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-4o-mini, openai:gpt-4o)", model)
+		return "", "", fmt.Errorf("invalid --model format: %q (expected <provider>:<model_name>, e.g. copilot:gpt-5-mini, openai:gpt-4o)", model)
 	}
 	return parts[0], parts[1], nil
 }
