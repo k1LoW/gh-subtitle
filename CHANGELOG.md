@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.5.0](https://github.com/k1LoW/gh-subtitle/compare/v0.4.8...v0.5.0) - 2026-06-17
+
+### Breaking Changes 🛠
+- fix: change default model to copilot:gpt-5-mini by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/30
+
 ## [v0.4.8](https://github.com/k1LoW/gh-subtitle/compare/v0.4.7...v0.4.8) - 2026-06-11
 
 ### Dependency Updates ⬆️
