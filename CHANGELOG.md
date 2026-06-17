@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.4.8](https://github.com/k1LoW/gh-subtitle/compare/v0.4.7...v0.4.8) - 2026-06-11
+
+### Dependency Updates ⬆️
+- chore(deps): bump github.com/github/copilot-sdk/go from 0.2.2 to 0.3.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/26
+- chore(deps): bump github.com/github/copilot-sdk/go from 0.3.0 to 1.0.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/28
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.0 to 1.0.1 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/29
+
 ## [v0.4.7](https://github.com/k1LoW/gh-subtitle/compare/v0.4.6...v0.4.7) - 2026-04-15
 ### Dependency Updates ⬆️
 - chore(deps): bump github.com/github/copilot-sdk/go from 0.2.0 to 0.2.1 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/22
