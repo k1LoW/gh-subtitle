@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.5.1](https://github.com/k1LoW/gh-subtitle/compare/v0.5.0...v0.5.1) - 2026-10-22
+
+### Dependency Updates ⬆️
+- chore(deps): bump the dependencies group across 1 directory with 2 updates by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/34
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.1 to 1.0.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/33
+### Other Changes
+- ci: generate CREDITS with gocredits v1.0.0 from a make target by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/35
+- fix: use the Responses API for the official OpenAI endpoint in BYOK mode by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/38
+
 ## [v0.5.0](https://github.com/k1LoW/gh-subtitle/compare/v0.4.8...v0.5.0) - 2026-06-17
 
 ### Breaking Changes 🛠
