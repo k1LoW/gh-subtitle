@@ -136,6 +136,8 @@ Supported providers:
 
 Base URL resolution order: `--base-url` flag → `GH_SUBTITLE_PROVIDER_BASE_URL` env var → provider default.
 
+When the `openai` provider uses the official endpoint (`https://api.openai.com/v1`), the Responses API is used. Other endpoints (custom base URLs, `azure`, `ollama`) use the Chat Completions API.
+
 Note: `GH_TOKEN`/`GITHUB_TOKEN` is for `gh` CLI and Copilot SDK API operations. In BYOK mode, translation itself uses `GH_SUBTITLE_PROVIDER_API_KEY` for the configured provider.
 
 ```yaml

@@ -427,11 +427,18 @@ func buildProviderConfig(provider string, byokMode bool, flagBaseURL string) (*c
 		return nil, fmt.Errorf("--base-url or GH_SUBTITLE_PROVIDER_BASE_URL is required for provider %q", provider)
 	}
 
-	return &copilot.ProviderConfig{
+	cfg := &copilot.ProviderConfig{
 		Type:    defaults.typ,
 		BaseURL: resolvedURL,
 		APIKey:  apiKey,
-	}, nil
+	}
+	// Only the official OpenAI endpoint is switched to the Responses API, because some models
+	// (e.g. gpt-6-luna) reject tool calling with reasoning on Chat Completions, while
+	// OpenAI-compatible endpoints (Ollama, proxies, etc.) often do not implement the Responses API.
+	if provider == "openai" && strings.TrimSuffix(resolvedURL, "/") == defaults.defaultURL {
+		cfg.WireAPI = "responses"
+	}
+	return cfg, nil
 }
 
 func contentLabel(item github.ContentItem) string {

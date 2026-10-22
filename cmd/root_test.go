@@ -49,6 +49,9 @@ func TestBuildProviderConfig(t *testing.T) {
 		if cfg.APIKey != "sk-test-key" {
 			t.Errorf("expected API key sk-test-key, got %s", cfg.APIKey)
 		}
+		if cfg.WireAPI != "responses" {
+			t.Errorf("expected wire API responses for official OpenAI endpoint, got %s", cfg.WireAPI)
+		}
 	})
 
 	t.Run("openai with byok but no API key", func(t *testing.T) {
@@ -148,6 +151,45 @@ func TestBuildProviderConfig(t *testing.T) {
 		}
 		if cfg.BaseURL != "https://flag.example.com/v1" {
 			t.Errorf("expected base URL from flag, got %s", cfg.BaseURL)
+		}
+	})
+
+	t.Run("openai with custom base URL uses default wire API", func(t *testing.T) {
+		t.Setenv("GH_SUBTITLE_PROVIDER_API_KEY", "sk-test")
+		t.Setenv("GH_SUBTITLE_PROVIDER_BASE_URL", "")
+
+		cfg, err := buildProviderConfig("openai", true, "https://proxy.example.com/v1")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.WireAPI != "" {
+			t.Errorf("expected empty wire API for custom endpoint, got %s", cfg.WireAPI)
+		}
+	})
+
+	t.Run("openai with official base URL and trailing slash uses responses", func(t *testing.T) {
+		t.Setenv("GH_SUBTITLE_PROVIDER_API_KEY", "sk-test")
+		t.Setenv("GH_SUBTITLE_PROVIDER_BASE_URL", "")
+
+		cfg, err := buildProviderConfig("openai", true, "https://api.openai.com/v1/")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.WireAPI != "responses" {
+			t.Errorf("expected wire API responses, got %s", cfg.WireAPI)
+		}
+	})
+
+	t.Run("ollama uses default wire API", func(t *testing.T) {
+		t.Setenv("GH_SUBTITLE_PROVIDER_API_KEY", "")
+		t.Setenv("GH_SUBTITLE_PROVIDER_BASE_URL", "")
+
+		cfg, err := buildProviderConfig("ollama", true, "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.WireAPI != "" {
+			t.Errorf("expected empty wire API for ollama, got %s", cfg.WireAPI)
 		}
 	})
 }
