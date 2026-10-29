@@ -3,11 +3,13 @@ module github.com/k1LoW/gh-subtitle
 go 1.26.1
 
 require (
-	github.com/github/copilot-sdk/go v1.0.2
+	github.com/github/copilot-sdk/go v1.0.26
 	github.com/spf13/cobra v1.10.2
 )
 
 require (
+	github.com/coder/websocket v1.8.15 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
