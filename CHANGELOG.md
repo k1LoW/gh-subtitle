@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.5.2](https://github.com/k1LoW/gh-subtitle/compare/v0.5.1...v0.5.2) - 2026-10-29
+
+### Dependency Updates ⬆️
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.2 to 1.0.26 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/39
+
 ## [v0.5.1](https://github.com/k1LoW/gh-subtitle/compare/v0.5.0...v0.5.1) - 2026-10-22
 
 ### Dependency Updates ⬆️
