@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.5.2](https://github.com/k1LoW/gh-subtitle/compare/v0.5.1...v0.5.2) - 2026-11-18
+
+### Dependency Updates ⬆️
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.2 to 1.0.26 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/39
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.26 to 1.0.28 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/41
+- chore(deps): bump go.opentelemetry.io/otel/trace from 1.35.0 to 1.47.0 by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/43
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.28 to 1.0.34 in the dependencies group across 1 directory by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/42
+
 ## [v0.5.1](https://github.com/k1LoW/gh-subtitle/compare/v0.5.0...v0.5.1) - 2026-10-22
 
 ### Dependency Updates ⬆️
