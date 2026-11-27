@@ -52,11 +52,14 @@ $ GH_SUBTITLE_PROVIDER_API_KEY=... gh subtitle https://github.com/owner/repo/pul
 
 ### Supported Content
 
-| Type | Title | Body | Comments |
-|------|-------|------|----------|
-| Pull Request | ✓ | ✓ | Issue comments, Review comments |
-| Issue | ✓ | ✓ | Issue comments |
-| Discussion | ✓ | ✓ | Comments, Replies |
+| Type | Title | Body | Comments | Required permission |
+|------|-------|------|----------|---------------------|
+| Pull Request | ✓ | ✓ | Issue comments, Review comments | `pull-requests: write` |
+| Issue | ✓ | ✓ | Issue comments | `issues: write` |
+| Discussion | ✓ | ✓ | Comments, Replies | Fine-grained PAT with `Discussions: Read and write` |
+
+> [!NOTE]
+> Discussions are updated via the GraphQL `updateDiscussion` / `updateDiscussionComment` mutations, which cannot be run with the `GITHUB_TOKEN` of GitHub Actions (its `discussions: write` permission does not cover editing) or with a GitHub App installation token. Use a fine-grained personal access token with the `Discussions: Read and write` permission instead.
 
 ### Title Translation
 
@@ -109,11 +112,16 @@ For CI environments, set `GH_TOKEN` or `GITHUB_TOKEN` for authentication.
 
 Token resolution order (both Copilot SDK and `gh` CLI): `GH_TOKEN` → `GITHUB_TOKEN` → logged-in user (via `gh auth`).
 
+In GitHub Actions, the built-in `GITHUB_TOKEN` can be used for Copilot requests in organization-owned repositories. Grant the `copilot-requests: write` permission along with the permission for the target content (see [Supported Content](#supported-content)), and enable the organization's "Allow use of Copilot CLI billed to the organization" policy. Copilot usage is billed to the organization. To translate Discussions, pass a fine-grained PAT instead of `GITHUB_TOKEN`.
 ```yaml
-# Example GitHub Actions step (Copilot mode)
-- run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# Example GitHub Actions job (Copilot mode)
+permissions:
+  copilot-requests: write
+  pull-requests: write
+steps:
+  - run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ### BYOK Mode (`--byok`)
