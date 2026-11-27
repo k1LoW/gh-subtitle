@@ -46,6 +46,6 @@ The codebase follows a pipeline: **CLI parsing → GitHub fetch → translation 
 
 ## Authentication
 
-**Copilot mode** (default): Token resolution for both Copilot SDK and `gh` CLI: `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth` logged-in user.
+**Copilot mode** (default): Token resolution for Copilot SDK: `COPILOT_GITHUB_TOKEN` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth` logged-in user. `gh` CLI uses `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth`, so `COPILOT_GITHUB_TOKEN` lets Copilot requests use a different token (e.g. Actions `GITHUB_TOKEN` for Copilot, fine-grained PAT for Discussions).
 
 **BYOK mode** (`--byok`): Uses `GH_SUBTITLE_PROVIDER_API_KEY` env var for external provider authentication. Base URL can be set via `--base-url` flag or `GH_SUBTITLE_PROVIDER_BASE_URL` env var. Supported providers: `openai`, `anthropic`, `azure`, `ollama`.

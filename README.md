@@ -110,9 +110,15 @@ By default, gh-subtitle uses the Copilot SDK with the logged-in user's authentic
 
 For CI environments, set `GH_TOKEN` or `GITHUB_TOKEN` for authentication.
 
-Token resolution order (both Copilot SDK and `gh` CLI): `GH_TOKEN` → `GITHUB_TOKEN` → logged-in user (via `gh auth`).
+Token resolution order:
 
-In GitHub Actions, the built-in `GITHUB_TOKEN` can be used for Copilot requests in organization-owned repositories. Grant the `copilot-requests: write` permission along with the permission for the target content (see [Supported Content](#supported-content)), and enable the organization's "Allow use of Copilot CLI billed to the organization" policy. Copilot usage is billed to the organization. To translate Discussions, pass a fine-grained PAT instead of `GITHUB_TOKEN`.
+- Copilot SDK: `COPILOT_GITHUB_TOKEN` → `GH_TOKEN` → `GITHUB_TOKEN` → logged-in user (via `gh auth`)
+- `gh` CLI: `GH_TOKEN` → `GITHUB_TOKEN` → logged-in user (via `gh auth`)
+
+Set `COPILOT_GITHUB_TOKEN` to use a different token for Copilot requests than for GitHub API operations.
+
+In GitHub Actions, the built-in `GITHUB_TOKEN` can be used for Copilot requests in organization-owned repositories. Grant the `copilot-requests: write` permission along with the permission for the target content (see [Supported Content](#supported-content)), and enable the organization's "Allow use of Copilot CLI billed to the organization" policy. Copilot usage is billed to the organization.
+
 ```yaml
 # Example GitHub Actions job (Copilot mode)
 permissions:
@@ -122,6 +128,19 @@ steps:
   - run: gh subtitle ${{ github.event.pull_request.html_url }} -t ja
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Discussions require a fine-grained PAT for GitHub API operations, so pass it as `GH_TOKEN` and keep the built-in `GITHUB_TOKEN` for Copilot requests via `COPILOT_GITHUB_TOKEN`.
+
+```yaml
+# Example GitHub Actions job (Copilot mode, Discussions)
+permissions:
+  copilot-requests: write
+steps:
+  - run: gh subtitle ${{ github.event.discussion.html_url }} -t ja
+    env:
+      COPILOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.DISCUSSIONS_PAT }}
 ```
 
 ### BYOK Mode (`--byok`)

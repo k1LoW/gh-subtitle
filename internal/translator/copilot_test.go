@@ -89,3 +89,28 @@ func TestNewSessionConfigDeniesPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveCopilotToken(t *testing.T) {
+	tests := []struct {
+		name    string
+		copilot string
+		ghToken string
+		github  string
+		want    string
+	}{
+		{name: "COPILOT_GITHUB_TOKEN takes precedence", copilot: "copilot", ghToken: "gh", github: "github", want: "copilot"},
+		{name: "GH_TOKEN over GITHUB_TOKEN", ghToken: "gh", github: "github", want: "gh"},
+		{name: "GITHUB_TOKEN only", github: "github", want: "github"},
+		{name: "no token falls back to the logged-in user", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("COPILOT_GITHUB_TOKEN", tt.copilot)
+			t.Setenv("GH_TOKEN", tt.ghToken)
+			t.Setenv("GITHUB_TOKEN", tt.github)
+			if got := resolveCopilotToken(); got != tt.want {
+				t.Errorf("resolveCopilotToken() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
