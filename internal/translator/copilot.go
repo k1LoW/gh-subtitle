@@ -134,11 +134,31 @@ Rules:
 	}
 
 	var outputs []TranslationOutput
-	if err := json.Unmarshal([]byte(responseContent), &outputs); err != nil {
+	if err := json.Unmarshal([]byte(stripCodeFence(responseContent)), &outputs); err != nil {
 		return nil, fmt.Errorf("failed to parse copilot response: %w\nresponse: %s", err, responseContent)
 	}
 
 	return outputs, nil
+}
+
+// stripCodeFence removes a markdown code fence wrapping the whole response.
+// The system prompt already forbids fences, but some models (e.g. claude-haiku-4.5)
+// add them anyway, and the usable models in Copilot mode are decided by org policy,
+// so the parser has to tolerate them instead of relying on the prompt.
+func stripCodeFence(s string) string {
+	trimmed := strings.TrimSpace(s)
+	if !strings.HasPrefix(trimmed, "```") || !strings.HasSuffix(trimmed, "```") {
+		return s
+	}
+	first := strings.IndexByte(trimmed, '\n')
+	if first < 0 {
+		return s
+	}
+	last := strings.LastIndexByte(trimmed, '\n')
+	if last <= first {
+		return s
+	}
+	return strings.TrimSpace(trimmed[first+1 : last])
 }
 
 // Close stops the Copilot client.
