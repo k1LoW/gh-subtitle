@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	copilot "github.com/github/copilot-sdk/go"
+	"github.com/github/copilot-sdk/go/rpc"
 )
 
 const minCopilotVersion = "0.0.411"
@@ -29,8 +31,20 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 		return nil, err
 	}
 
+	baseDir, err := copilotHome()
+	if err != nil {
+		return nil, err
+	}
+
 	opts := &copilot.ClientOptions{
 		LogLevel: "error",
+		// ModeEmpty turns off built-in tools, host environment context, custom
+		// instructions, plugins and remote agents by default, because the
+		// translated text is untrusted (anyone can write a PR/Issue/comment).
+		Mode: copilot.ModeEmpty,
+		// ModeEmpty requires an explicit BaseDirectory. Reuse the Copilot CLI's
+		// default home instead of a temporary one so that stored logins keep working.
+		BaseDirectory: baseDir,
 	}
 	// Follow the same token resolution order as the gh CLI: GH_TOKEN > GITHUB_TOKEN > gh auth
 	if token := os.Getenv("GH_TOKEN"); token != "" {
@@ -50,6 +64,25 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 		model:    model,
 		provider: provider,
 	}, nil
+}
+
+// denyAllPermissions rejects every permission request.
+// Translation never needs tools, so any request is either a runtime surprise or
+// the result of prompt injection in the untrusted input.
+func denyAllPermissions(_ copilot.PermissionRequest, _ copilot.PermissionInvocation) (rpc.PermissionDecision, error) {
+	return &rpc.PermissionDecisionReject{}, nil
+}
+
+// copilotHome returns the Copilot CLI home directory, honoring COPILOT_HOME.
+func copilotHome() (string, error) {
+	if dir := os.Getenv("COPILOT_HOME"); dir != "" {
+		return dir, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+	}
+	return filepath.Join(home, ".copilot"), nil
 }
 
 // TranslateBatch translates a batch of items to the target language.
@@ -78,7 +111,10 @@ Rules:
   When the detected source language differs from the target, translate the full sentence. When they match, return the text unchanged (see CRITICAL rule above).`, lang)
 
 	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
-		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+		// An empty non-nil slice is sent as [] and disables every tool; nil would
+		// fall back to the mode default.
+		AvailableTools:      []string{},
+		OnPermissionRequest: denyAllPermissions,
 		Model:               t.model,
 		Provider:            t.provider,
 		SystemMessage: &copilot.SystemMessageConfig{
@@ -193,7 +229,6 @@ func parseCopilotVersion(output string) string {
 	m := versionRe.FindString(output)
 	return m
 }
-
 
 func compareVersions(a, b string) int {
 	partsA := strings.Split(a, ".")
