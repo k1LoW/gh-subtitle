@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.6.0](https://github.com/k1LoW/gh-subtitle/compare/v0.5.2...v0.6.0) - 2026-11-27
+
+### Breaking Changes 🛠
+- fix: rename --body-only to --skip-comments by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/49
+### New Features 🎉
+- feat: accept COPILOT_GITHUB_TOKEN for Copilot requests by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/50
+### Dependency Updates ⬆️
+- chore(deps): bump github.com/github/copilot-sdk/go from 1.0.34 to 1.0.35 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/gh-subtitle/pull/44
+### Other Changes
+- fix: strip a markdown code fence around the translation response by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/47
+- fix: disable agent tools and deny permission requests in the translator by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/48
+
 ## [v0.5.2](https://github.com/k1LoW/gh-subtitle/compare/v0.5.1...v0.5.2) - 2026-11-18
 
 ### Dependency Updates ⬆️
