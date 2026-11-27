@@ -58,7 +58,21 @@ func TestStripCodeFence(t *testing.T) {
 	}
 }
 
-func TestDenyAllPermissions(t *testing.T) {
+func TestNewSessionConfigDisablesTools(t *testing.T) {
+	cfg := newSessionConfig("", nil, "prompt")
+	if cfg.AvailableTools == nil {
+		t.Fatal("AvailableTools is nil, which falls back to the default tool set")
+	}
+	if len(cfg.AvailableTools) != 0 {
+		t.Errorf("AvailableTools = %v, want empty", cfg.AvailableTools)
+	}
+}
+
+func TestNewSessionConfigDeniesPermissions(t *testing.T) {
+	cfg := newSessionConfig("", nil, "prompt")
+	if cfg.OnPermissionRequest == nil {
+		t.Fatal("OnPermissionRequest is nil")
+	}
 	requests := []copilot.PermissionRequest{
 		&rpc.PermissionRequestShell{},
 		&rpc.PermissionRequestWrite{},
@@ -66,7 +80,7 @@ func TestDenyAllPermissions(t *testing.T) {
 		&rpc.PermissionRequestMCP{},
 	}
 	for _, req := range requests {
-		decision, err := denyAllPermissions(req, copilot.PermissionInvocation{})
+		decision, err := cfg.OnPermissionRequest(req, copilot.PermissionInvocation{})
 		if err != nil {
 			t.Fatalf("%T: unexpected error: %v", req, err)
 		}
