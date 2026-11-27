@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.6.1](https://github.com/k1LoW/gh-subtitle/compare/v0.6.0...v0.6.1) - 2026-11-27
+
+### Other Changes
+- fix: run the Copilot CLI found on PATH by @k1LoW in https://github.com/k1LoW/gh-subtitle/pull/51
+
 ## [v0.6.0](https://github.com/k1LoW/gh-subtitle/compare/v0.5.2...v0.6.0) - 2026-11-27
 
 ### Breaking Changes 🛠
