@@ -36,12 +36,7 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 		// which breaks logins stored in the OS keychain. Its hardening is applied
 		// per session in TranslateBatch instead.
 	}
-	// Follow the same token resolution order as the gh CLI: GH_TOKEN > GITHUB_TOKEN > gh auth
-	if token := os.Getenv("GH_TOKEN"); token != "" {
-		opts.GitHubToken = token
-	} else if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		opts.GitHubToken = token
-	}
+	opts.GitHubToken = resolveCopilotToken()
 
 	client := copilot.NewClient(opts)
 
@@ -247,4 +242,17 @@ func compareVersions(a, b string) int {
 		}
 	}
 	return 0
+}
+
+// resolveCopilotToken returns the token for Copilot requests, or an empty string to use the logged-in user.
+// COPILOT_GITHUB_TOKEN takes precedence so that Copilot requests and gh CLI operations can use different tokens,
+// e.g. the Actions GITHUB_TOKEN for Copilot and a fine-grained PAT for editing Discussions, which GITHUB_TOKEN cannot do.
+// The name follows the variable Copilot CLI already reads, instead of a gh-subtitle specific one.
+func resolveCopilotToken() string {
+	for _, key := range []string{"COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"} {
+		if token := os.Getenv(key); token != "" {
+			return token
+		}
+	}
+	return ""
 }
