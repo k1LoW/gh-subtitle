@@ -1,6 +1,8 @@
 package translator
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	copilot "github.com/github/copilot-sdk/go"
@@ -113,4 +115,44 @@ func TestResolveCopilotToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveCopilotCLIPath(t *testing.T) {
+	dir := t.TempDir()
+	onPath := filepath.Join(dir, "copilot")
+	if err := os.WriteFile(onPath, []byte("#!/bin/sh\n"), 0o755); err != nil { //nolint:gosec // LookPath only finds executable files
+		t.Fatal(err)
+	}
+
+	t.Run("COPILOT_CLI_PATH takes precedence over PATH", func(t *testing.T) {
+		t.Setenv("PATH", dir)
+		t.Setenv("COPILOT_CLI_PATH", "/opt/copilot/bin/copilot")
+		got, err := resolveCopilotCLIPath()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := "/opt/copilot/bin/copilot"; got != want {
+			t.Errorf("resolveCopilotCLIPath() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("copilot on PATH is used when COPILOT_CLI_PATH is unset", func(t *testing.T) {
+		t.Setenv("PATH", dir)
+		t.Setenv("COPILOT_CLI_PATH", "")
+		got, err := resolveCopilotCLIPath()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != onPath {
+			t.Errorf("resolveCopilotCLIPath() = %q, want %q", got, onPath)
+		}
+	})
+
+	t.Run("error when copilot is not found", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+		t.Setenv("COPILOT_CLI_PATH", "")
+		if _, err := resolveCopilotCLIPath(); err == nil {
+			t.Error("resolveCopilotCLIPath() returned no error")
+		}
+	})
 }

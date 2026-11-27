@@ -31,7 +31,7 @@ The codebase follows a pipeline: **CLI parsing → GitHub fetch → translation 
 
 - **`cmd/root.go`** — CLI entry point and orchestration. Dispatches to `runTranslate()` or `runClear()`. Lazily initializes translator, iterates over target languages, batches items for translation. Handles title translation alongside body translation.
 - **`internal/github/`** — GitHub API interactions via `gh` CLI commands. Uses REST API for PRs/Issues, GraphQL for Discussions. `ParseURL()` determines content type from URL.
-- **`internal/translator/`** — `Translator` interface with `CopilotTranslator` implementation. Uses Copilot SDK client with a system prompt that instructs translation while preserving markdown/code. Checks Copilot CLI version compatibility (≥ 0.0.411).
+- **`internal/translator/`** — `Translator` interface with `CopilotTranslator` implementation. Uses Copilot SDK client with a system prompt that instructs translation while preserving markdown/code. Runs the Copilot CLI from `COPILOT_CLI_PATH` or `PATH` (the SDK itself no longer looks up `PATH`) and checks its version compatibility (≥ 0.0.411).
 - **`internal/subtitle/`** — Manages translation marker blocks in markdown. Uses `<!-- subtitle:LANG:start sha256:HASH -->` / `<!-- subtitle:LANG:end -->` markers for body translations and `<!-- subtitle-title-original:BASE64 -->` / `<!-- subtitle-title:LANG sha256:HASH -->` markers for title translation state. SHA256 hash (first 8 hex chars) of stripped original text enables idempotent updates.
 - **`version/`** — Version constant.
 
