@@ -19,8 +19,8 @@ $ gh subtitle https://github.com/owner/repo/issues/456 -t en
 # Add both Japanese and English translations (mutual translation)
 $ gh subtitle https://github.com/owner/repo/pull/123 -t ja -t en
 
-# Translate only the body (skip comments)
-$ gh subtitle https://github.com/owner/repo/pull/123 -t ja --body-only
+# Skip comment translation (translate title and body only)
+$ gh subtitle https://github.com/owner/repo/pull/123 -t ja --skip-comments
 
 # Skip title translation (translate body and comments only)
 $ gh subtitle https://github.com/owner/repo/pull/123 -t ja --skip-title
@@ -155,7 +155,7 @@ Note: `GH_TOKEN`/`GITHUB_TOKEN` is for `gh` CLI and Copilot SDK API operations. 
 | `--translate` | `-t` | Target language(s) for translation (required, can be specified multiple times) |
 | `--model` | `-m` | Model to use in `<provider>:<model_name>` format (default: `copilot:gpt-5-mini`) |
 | `--dry-run` | `-n` | Show translations without updating GitHub |
-| `--body-only` | | Translate only the body (skip comments) |
+| `--skip-comments` | | Skip comment translation |
 | `--clear` | | Remove translation marker blocks (all languages, or specific languages with `-t`) |
 | `--include-bots` | | Include bot comments in translation (skipped by default) |
 | `--skip-title` | | Skip title translation |

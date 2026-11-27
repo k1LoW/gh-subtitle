@@ -42,16 +42,16 @@ func ParseURL(rawURL string) (*ParsedURL, error) {
 }
 
 // FetchContent fetches all content items for the given parsed URL.
-func FetchContent(parsed *ParsedURL, bodyOnly bool) ([]ContentItem, error) {
+func FetchContent(parsed *ParsedURL, skipComments bool) ([]ContentItem, error) {
 	repo := parsed.Owner + "/" + parsed.Repo
 
 	switch parsed.Type {
 	case "pull":
-		return fetchPRContent(repo, parsed.Number, bodyOnly)
+		return fetchPRContent(repo, parsed.Number, skipComments)
 	case "issues":
-		return fetchIssueContent(repo, parsed.Number, bodyOnly)
+		return fetchIssueContent(repo, parsed.Number, skipComments)
 	case "discussions":
-		return fetchDiscussionContent(parsed.Owner, parsed.Repo, parsed.Number, bodyOnly)
+		return fetchDiscussionContent(parsed.Owner, parsed.Repo, parsed.Number, skipComments)
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", parsed.Type)
 	}
@@ -79,7 +79,7 @@ func UpdateContent(parsed *ParsedURL, item ContentItem, newBody string) error {
 	}
 }
 
-func fetchPRContent(repo string, number int, bodyOnly bool) ([]ContentItem, error) {
+func fetchPRContent(repo string, number int, skipComments bool) ([]ContentItem, error) {
 	var items []ContentItem
 
 	// Fetch PR body
@@ -101,7 +101,7 @@ func fetchPRContent(repo string, number int, bodyOnly bool) ([]ContentItem, erro
 		Body:   prData.Body,
 	})
 
-	if bodyOnly {
+	if skipComments {
 		return items, nil
 	}
 
@@ -122,7 +122,7 @@ func fetchPRContent(repo string, number int, bodyOnly bool) ([]ContentItem, erro
 	return items, nil
 }
 
-func fetchIssueContent(repo string, number int, bodyOnly bool) ([]ContentItem, error) {
+func fetchIssueContent(repo string, number int, skipComments bool) ([]ContentItem, error) {
 	var items []ContentItem
 
 	// Fetch issue body
@@ -144,7 +144,7 @@ func fetchIssueContent(repo string, number int, bodyOnly bool) ([]ContentItem, e
 		Body:   issueData.Body,
 	})
 
-	if bodyOnly {
+	if skipComments {
 		return items, nil
 	}
 
@@ -222,7 +222,7 @@ func fetchReviewComments(repo string, number int) ([]ContentItem, error) {
 	return items, nil
 }
 
-func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]ContentItem, error) {
+func fetchDiscussionContent(owner, repo string, number int, skipComments bool) ([]ContentItem, error) {
 	query := fmt.Sprintf(`query {
   repository(owner: %q, name: %q) {
     discussion(number: %d) {
@@ -296,7 +296,7 @@ func fetchDiscussionContent(owner, repo string, number int, bodyOnly bool) ([]Co
 		Body:   disc.Body,
 	})
 
-	if bodyOnly {
+	if skipComments {
 		return items, nil
 	}
 

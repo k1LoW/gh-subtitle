@@ -21,7 +21,7 @@ var (
 	translateLangs []string
 	model          string
 	dryRun         bool
-	bodyOnly       bool
+	skipComments   bool
 	clearMode      bool
 	includeBots    bool
 	byok           bool
@@ -48,7 +48,7 @@ func init() {
 	rootCmd.Flags().StringSliceVarP(&translateLangs, "translate", "t", nil, "Target language(s) for translation (required, can be specified multiple times)")
 	rootCmd.Flags().StringVarP(&model, "model", "m", "copilot:gpt-5-mini", "Model to use in <provider>:<model_name> format (e.g. copilot:gpt-5-mini, openai:gpt-4o with --byok)")
 	rootCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Show translations without updating GitHub")
-	rootCmd.Flags().BoolVar(&bodyOnly, "body-only", false, "Translate only the body (skip comments)")
+	rootCmd.Flags().BoolVar(&skipComments, "skip-comments", false, "Skip comment translation")
 	rootCmd.Flags().BoolVar(&clearMode, "clear", false, "Remove translation marker blocks")
 	rootCmd.Flags().BoolVar(&includeBots, "include-bots", false, "Include bot comments in translation (skipped by default)")
 	rootCmd.Flags().BoolVar(&byok, "byok", false, "Use BYOK (Bring Your Own Key) mode with Copilot SDK (GH_SUBTITLE_PROVIDER_API_KEY required for openai/anthropic/azure)")
@@ -73,7 +73,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	items, err := github.FetchContent(parsed, bodyOnly)
+	items, err := github.FetchContent(parsed, skipComments)
 	if err != nil {
 		return err
 	}
