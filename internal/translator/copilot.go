@@ -26,12 +26,19 @@ type CopilotTranslator struct {
 // NewCopilotTranslator creates a new CopilotTranslator.
 // When provider is non-nil, BYOK mode is used and the provider config is passed to session creation.
 func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.ProviderConfig) (*CopilotTranslator, error) {
-	if err := checkCopilotCLI(); err != nil {
+	cliPath, err := resolveCopilotCLIPath()
+	if err != nil {
+		return nil, err
+	}
+	if err := checkCopilotCLI(cliPath); err != nil {
 		return nil, err
 	}
 
 	opts := &copilot.ClientOptions{
 		LogLevel: "error",
+		// The SDK no longer looks up copilot on PATH and falls back to a runtime
+		// embedded with its bundler, which this binary does not carry.
+		Connection: copilot.StdioConnection{Path: cliPath},
 		// copilot.ModeEmpty is not used because it sets COPILOT_DISABLE_KEYTAR=1,
 		// which breaks logins stored in the OS keychain. Its hardening is applied
 		// per session in TranslateBatch instead.
@@ -198,10 +205,23 @@ func (t *CopilotTranslator) Close() error {
 	return nil
 }
 
-func checkCopilotCLI() error {
-	out, err := exec.Command("copilot", "--version").Output()
+// resolveCopilotCLIPath returns the Copilot CLI to run, preferring COPILOT_CLI_PATH over PATH.
+// COPILOT_CLI_PATH is checked here because an explicit connection path makes the SDK ignore it.
+func resolveCopilotCLIPath() (string, error) {
+	if p := os.Getenv("COPILOT_CLI_PATH"); p != "" {
+		return p, nil
+	}
+	p, err := exec.LookPath("copilot")
 	if err != nil {
-		return fmt.Errorf("copilot CLI not found. Please install GitHub Copilot CLI >= %s", minCopilotVersion)
+		return "", fmt.Errorf("copilot CLI not found. Please install GitHub Copilot CLI >= %s or set COPILOT_CLI_PATH", minCopilotVersion)
+	}
+	return p, nil
+}
+
+func checkCopilotCLI(cliPath string) error {
+	out, err := exec.Command(cliPath, "--version").Output()
+	if err != nil {
+		return fmt.Errorf("failed to run copilot CLI at %s: %w", cliPath, err)
 	}
 
 	version := parseCopilotVersion(string(out))

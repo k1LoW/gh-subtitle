@@ -102,6 +102,8 @@ $ gh extension install k1LoW/gh-subtitle
 
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot) >= 0.0.411 (`copilot --version` to check, `copilot update` to upgrade)
 
+The `copilot` found on `PATH` is used. Set `COPILOT_CLI_PATH` to use a Copilot CLI at another location.
+
 ## Authentication
 
 ### Copilot Mode (default)
