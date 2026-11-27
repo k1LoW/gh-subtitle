@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	copilot "github.com/github/copilot-sdk/go"
+	"github.com/github/copilot-sdk/go/rpc"
 )
 
 const minCopilotVersion = "0.0.411"
@@ -31,6 +32,9 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 
 	opts := &copilot.ClientOptions{
 		LogLevel: "error",
+		// copilot.ModeEmpty is not used because it sets COPILOT_DISABLE_KEYTAR=1,
+		// which breaks logins stored in the OS keychain. Its hardening is applied
+		// per session in TranslateBatch instead.
 	}
 	// Follow the same token resolution order as the gh CLI: GH_TOKEN > GITHUB_TOKEN > gh auth
 	if token := os.Getenv("GH_TOKEN"); token != "" {
@@ -50,6 +54,43 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 		model:    model,
 		provider: provider,
 	}, nil
+}
+
+// denyAllPermissions rejects every permission request.
+// Translation never needs tools, so any request is either a runtime surprise or
+// the result of prompt injection in the untrusted input.
+func denyAllPermissions(_ copilot.PermissionRequest, _ copilot.PermissionInvocation) (rpc.PermissionDecision, error) {
+	return &rpc.PermissionDecisionReject{}, nil
+}
+
+// newSessionConfig builds a session config for translating untrusted text
+// (anyone can write a PR/Issue/comment). It mirrors the safe defaults of
+// copilot.ModeEmpty without enabling that mode on the client.
+func newSessionConfig(model string, provider *copilot.ProviderConfig, systemPrompt string) *copilot.SessionConfig {
+	return &copilot.SessionConfig{
+		// An empty non-nil slice is sent as [] and disables every tool; nil would
+		// fall back to the default tool set.
+		AvailableTools:      []string{},
+		OnPermissionRequest: denyAllPermissions,
+		Model:               model,
+		Provider:            provider,
+		SystemMessage: &copilot.SystemMessageConfig{
+			Mode:    "customize",
+			Content: systemPrompt,
+			Sections: map[string]copilot.SectionOverride{
+				"environment_context": {Action: copilot.SectionActionRemove},
+			},
+		},
+		SkipCustomInstructions:             new(true),
+		EnableOnDemandInstructionDiscovery: new(false),
+		EnableSkills:                       new(false),
+		EnableFileHooks:                    new(false),
+		EnableHostGitOperations:            new(false),
+		EnableSessionStore:                 new(false),
+		EnableExperimentalMode:             new(false),
+		CustomAgentsLocalOnly:              new(true),
+		Memory:                             &copilot.MemoryConfiguration{Enabled: false},
+	}
 }
 
 // TranslateBatch translates a batch of items to the target language.
@@ -77,14 +118,7 @@ Rules:
   - Even very short text: if it contains particles like の, に, が, は, を, で, も, or verb endings like する, した, ない, ます, ている, the language is Japanese regardless of how many English/technical terms are present.
   When the detected source language differs from the target, translate the full sentence. When they match, return the text unchanged (see CRITICAL rule above).`, lang)
 
-	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
-		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
-		Model:               t.model,
-		Provider:            t.provider,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Content: systemPrompt,
-		},
-	})
+	session, err := t.client.CreateSession(ctx, newSessionConfig(t.model, t.provider, systemPrompt))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create copilot session: %w", err)
 	}
@@ -193,7 +227,6 @@ func parseCopilotVersion(output string) string {
 	m := versionRe.FindString(output)
 	return m
 }
-
 
 func compareVersions(a, b string) int {
 	partsA := strings.Split(a, ".")

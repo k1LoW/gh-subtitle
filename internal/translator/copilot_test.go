@@ -1,6 +1,11 @@
 package translator
 
-import "testing"
+import (
+	"testing"
+
+	copilot "github.com/github/copilot-sdk/go"
+	"github.com/github/copilot-sdk/go/rpc"
+)
 
 func TestStripCodeFence(t *testing.T) {
 	tests := []struct {
@@ -50,5 +55,37 @@ func TestStripCodeFence(t *testing.T) {
 				t.Errorf("stripCodeFence(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNewSessionConfigDisablesTools(t *testing.T) {
+	cfg := newSessionConfig("", nil, "prompt")
+	if cfg.AvailableTools == nil {
+		t.Fatal("AvailableTools is nil, which falls back to the default tool set")
+	}
+	if len(cfg.AvailableTools) != 0 {
+		t.Errorf("AvailableTools = %v, want empty", cfg.AvailableTools)
+	}
+}
+
+func TestNewSessionConfigDeniesPermissions(t *testing.T) {
+	cfg := newSessionConfig("", nil, "prompt")
+	if cfg.OnPermissionRequest == nil {
+		t.Fatal("OnPermissionRequest is nil")
+	}
+	requests := []copilot.PermissionRequest{
+		&rpc.PermissionRequestShell{},
+		&rpc.PermissionRequestWrite{},
+		&rpc.PermissionRequestURL{},
+		&rpc.PermissionRequestMCP{},
+	}
+	for _, req := range requests {
+		decision, err := cfg.OnPermissionRequest(req, copilot.PermissionInvocation{})
+		if err != nil {
+			t.Fatalf("%T: unexpected error: %v", req, err)
+		}
+		if _, ok := decision.(*rpc.PermissionDecisionReject); !ok {
+			t.Errorf("%T: got %T, want *rpc.PermissionDecisionReject", req, decision)
+		}
 	}
 }
