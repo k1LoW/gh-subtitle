@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,20 +30,11 @@ func NewCopilotTranslator(ctx context.Context, model string, provider *copilot.P
 		return nil, err
 	}
 
-	baseDir, err := copilotHome()
-	if err != nil {
-		return nil, err
-	}
-
 	opts := &copilot.ClientOptions{
 		LogLevel: "error",
-		// ModeEmpty turns off built-in tools, host environment context, custom
-		// instructions, plugins and remote agents by default, because the
-		// translated text is untrusted (anyone can write a PR/Issue/comment).
-		Mode: copilot.ModeEmpty,
-		// ModeEmpty requires an explicit BaseDirectory. Reuse the Copilot CLI's
-		// default home instead of a temporary one so that stored logins keep working.
-		BaseDirectory: baseDir,
+		// copilot.ModeEmpty is not used because it sets COPILOT_DISABLE_KEYTAR=1,
+		// which breaks logins stored in the OS keychain. Its hardening is applied
+		// per session in TranslateBatch instead.
 	}
 	// Follow the same token resolution order as the gh CLI: GH_TOKEN > GITHUB_TOKEN > gh auth
 	if token := os.Getenv("GH_TOKEN"); token != "" {
@@ -73,16 +63,34 @@ func denyAllPermissions(_ copilot.PermissionRequest, _ copilot.PermissionInvocat
 	return &rpc.PermissionDecisionReject{}, nil
 }
 
-// copilotHome returns the Copilot CLI home directory, honoring COPILOT_HOME.
-func copilotHome() (string, error) {
-	if dir := os.Getenv("COPILOT_HOME"); dir != "" {
-		return dir, nil
+// newSessionConfig builds a session config for translating untrusted text
+// (anyone can write a PR/Issue/comment). It mirrors the safe defaults of
+// copilot.ModeEmpty without enabling that mode on the client.
+func newSessionConfig(model string, provider *copilot.ProviderConfig, systemPrompt string) *copilot.SessionConfig {
+	return &copilot.SessionConfig{
+		// An empty non-nil slice is sent as [] and disables every tool; nil would
+		// fall back to the default tool set.
+		AvailableTools:      []string{},
+		OnPermissionRequest: denyAllPermissions,
+		Model:               model,
+		Provider:            provider,
+		SystemMessage: &copilot.SystemMessageConfig{
+			Mode:    "customize",
+			Content: systemPrompt,
+			Sections: map[string]copilot.SectionOverride{
+				"environment_context": {Action: copilot.SectionActionRemove},
+			},
+		},
+		SkipCustomInstructions:             new(true),
+		EnableOnDemandInstructionDiscovery: new(false),
+		EnableSkills:                       new(false),
+		EnableFileHooks:                    new(false),
+		EnableHostGitOperations:            new(false),
+		EnableSessionStore:                 new(false),
+		EnableExperimentalMode:             new(false),
+		CustomAgentsLocalOnly:              new(true),
+		Memory:                             &copilot.MemoryConfiguration{Enabled: false},
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve home directory: %w", err)
-	}
-	return filepath.Join(home, ".copilot"), nil
 }
 
 // TranslateBatch translates a batch of items to the target language.
@@ -110,17 +118,7 @@ Rules:
   - Even very short text: if it contains particles like の, に, が, は, を, で, も, or verb endings like する, した, ない, ます, ている, the language is Japanese regardless of how many English/technical terms are present.
   When the detected source language differs from the target, translate the full sentence. When they match, return the text unchanged (see CRITICAL rule above).`, lang)
 
-	session, err := t.client.CreateSession(ctx, &copilot.SessionConfig{
-		// An empty non-nil slice is sent as [] and disables every tool; nil would
-		// fall back to the mode default.
-		AvailableTools:      []string{},
-		OnPermissionRequest: denyAllPermissions,
-		Model:               t.model,
-		Provider:            t.provider,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Content: systemPrompt,
-		},
-	})
+	session, err := t.client.CreateSession(ctx, newSessionConfig(t.model, t.provider, systemPrompt))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create copilot session: %w", err)
 	}
